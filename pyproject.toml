@@ -1,7 +1,22 @@
 [project]
-name = "trading-system"
+name = "trader"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "alpaca-py>=0.43.2",
+    "dotenv>=0.9.9",
+    "numpy>=2.3.5",
+    "pandas>=2.3.3",
+    "polars>=1.35.2",
+    "pytz>=2025.2",
+    "quickfix",
+    "requests>=2.32.5",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+quickfix = { path = "dependency/quickfix-1.15.1/dist/quickfix-1.15.1-cp311-cp311-macosx_13_0_arm64.whl" }

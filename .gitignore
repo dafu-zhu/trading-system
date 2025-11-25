@@ -15,3 +15,6 @@ wheels/
 
 # IDE
 .idea/
+
+# Secrets
+.env/
