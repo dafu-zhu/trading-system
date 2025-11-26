@@ -3,7 +3,7 @@ name = "trader"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "alpaca-py>=0.43.2",
     "dotenv>=0.9.9",
@@ -19,4 +19,4 @@ dependencies = [
 package = true
 
 [tool.uv.sources]
-quickfix = { path = "dependency/quickfix-1.15.1/dist/quickfix-1.15.1-cp311-cp311-macosx_13_0_arm64.whl" }
+quickfix = { path = "dependency/quickfix-1.15.1/dist/quickfix-1.15.1-cp313-cp313-macosx_10_13_universal2.whl" }
