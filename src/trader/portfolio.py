@@ -66,6 +66,8 @@ class Portfolio:
         self._position_index: dict[str, Position] = {}
 
     def add_position(self, position: Position, group: PortfolioGroup):
+        if position.symbol in self._position_index:
+            raise ValueError(f"Symbol {position.symbol} already exists in portfolio")
         group.add(position)     # add to tree, O(1)
         self._position_index[position.symbol] = position    # add to index
 
@@ -73,11 +75,15 @@ class Portfolio:
         """Update quantity of a given symbol"""
         if position := self._position_index.get(symbol):
             position.quantity += delta      # in-place update
+        else:
+            raise ValueError(f"Symbol {symbol} not found")
 
     def update_price(self, symbol: str, price: float):
         """Update average price of a given symbol in portfolio"""
         if position := self._position_index.get(symbol):
             position.price = price
+        else:
+            raise ValueError(f"Symbol {symbol} not found")
 
     def get_total_value(self) -> float:
         """Get total portfolio value"""
@@ -86,6 +92,8 @@ class Portfolio:
     def get_position(self, symbol: str) -> list[dict]:
         """Get position for the specified symbol, return one element list"""
         symbol_pos: Position = self._position_index.get(symbol)
+        if not symbol_pos:
+            raise ValueError(f"Symbol {symbol} not found")
         return symbol_pos.get_positions()
 
     def get_positions(self) -> list[dict]:
