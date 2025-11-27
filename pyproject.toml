@@ -1,5 +1,5 @@
 [project]
-name = "trader"
+name = "trading-system"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -11,7 +11,7 @@ dependencies = [
     "pandas>=2.3.3",
     "polars>=1.35.2",
     "pytz>=2025.2",
-    "quickfix",
+    "quickfix>=1.15.1",
     "requests>=2.32.5",
 ]
 

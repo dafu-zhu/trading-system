@@ -391,7 +391,7 @@ wheels = [
 ]
 
 [[package]]
-name = "trader"
+name = "trading-system"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

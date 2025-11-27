@@ -3,7 +3,7 @@ import quickfix44 as fix44
 import time
 import uuid
 
-CFG_PATH = "../../config/fix.cfg"
+CFG_PATH = "../fix.cfg"
 
 
 class Application(fix.Application):
