@@ -21,3 +21,6 @@ wheels/
 
 # dependency
 dependency/
+
+# data
+**/storage

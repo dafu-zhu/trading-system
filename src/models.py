@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import datetime
 from abc import abstractmethod, ABC
-from trader.order import Order
 
 
 @dataclass

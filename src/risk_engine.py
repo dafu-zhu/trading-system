@@ -1,5 +1,5 @@
-from trader.portfolio import Portfolio
-from trader.order import Order
+from portfolio import Portfolio
+from order import Order
 
 
 class RiskEngine:

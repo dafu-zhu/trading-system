@@ -1,4 +1,4 @@
-from trader.models import PortfolioComponent
+from models import PortfolioComponent
 
 
 class Position(PortfolioComponent):

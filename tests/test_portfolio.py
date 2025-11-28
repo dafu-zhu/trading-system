@@ -1,5 +1,5 @@
 import pytest
-from trader.portfolio import Position, PortfolioGroup, Portfolio
+from portfolio import Position, PortfolioGroup, Portfolio
 
 
 class TestPosition:
