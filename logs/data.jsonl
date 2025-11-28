@@ -1,0 +1,3 @@
+{"level": "INFO", "message": "Start downloading...", "timestamp": "2025-11-28T19:30:26.479012+00:00", "logger": "src.data.providers.yf_provider", "module": "yf_provider", "function": "download", "line": 29, "thread_name": "MainThread"}
+{"level": "INFO", "message": "Download AAPL successful!", "timestamp": "2025-11-28T19:30:27.110083+00:00", "logger": "src.data.providers.yf_provider", "module": "yf_provider", "function": "download", "line": 46, "thread_name": "MainThread"}
+{"level": "INFO", "message": "Download MSFT successful!", "timestamp": "2025-11-28T19:30:27.132452+00:00", "logger": "src.data.providers.yf_provider", "module": "yf_provider", "function": "download", "line": 46, "thread_name": "MainThread"}

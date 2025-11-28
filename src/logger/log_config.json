@@ -7,7 +7,7 @@
       "datefmt": "%Y-%m-%dT%H:%M:%S%z"
     },
     "json": {
-      "()": "logger.JsonFormatter",
+      "()": "src.logger.logger.JsonFormatter",
       "fmt_keys": {
         "level": "levelname",
         "message": "message",
@@ -21,33 +21,98 @@
     }
   },
   "handlers": {
-    "stderr": {
+    "console": {
       "class": "logging.StreamHandler",
-      "level": "WARNING",
+      "level": "DEBUG",
       "formatter": "console",
       "stream": "ext://sys.stderr"
     },
-    "order_json": {
+    "app_file": {
       "class": "logging.handlers.RotatingFileHandler",
       "level": "DEBUG",
       "formatter": "json",
-      "filename": "../../logs/order.log.jsonl"
+      "filename": "logs/app.jsonl",
+      "maxBytes": 10485760,
+      "backupCount": 5
+    },
+    "gateway_file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/gateway.jsonl",
+      "maxBytes": 10485760,
+      "backupCount": 5
+    },
+    "data_file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/data.jsonl",
+      "maxBytes": 10485760,
+      "backupCount": 5
+    },
+    "strategy_file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/strategy.jsonl",
+      "maxBytes": 10485760,
+      "backupCount": 5
+    },
+    "analytics_file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/analytics.jsonl",
+      "maxBytes": 10485760,
+      "backupCount": 5
+    },
+    "backtester_file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "formatter": "json",
+      "filename": "logs/backtester.jsonl",
+      "maxBytes": 10485760,
+      "backupCount": 5
     },
     "queue_handler": {
       "class": "logging.handlers.QueueHandler",
       "handlers": [
-        "stderr",
-        "order_json"
+        "console",
+        "app_file"
       ],
       "respect_handler_level": true
     }
   },
   "loggers": {
     "root": {
+      "level": "INFO",
+      "handlers": ["queue_handler"]
+    },
+    "src.gateway": {
       "level": "DEBUG",
-      "handlers": [
-        "queue_handler"
-      ]
+      "handlers": ["gateway_file"],
+      "propagate": false
+    },
+    "src.data": {
+      "level": "DEBUG",
+      "handlers": ["console", "data_file"],
+      "propagate": false
+    },
+    "src.strategy": {
+      "level": "DEBUG",
+      "handlers": ["strategy_file"],
+      "propagate": false
+    },
+    "src.analytics": {
+      "level": "DEBUG",
+      "handlers": ["analytics_file"],
+      "propagate": false
+    },
+    "src.backtester": {
+      "level": "DEBUG",
+      "handlers": ["backtester_file"],
+      "propagate": false
     }
   }
 }

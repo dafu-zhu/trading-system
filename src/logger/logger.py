@@ -12,10 +12,21 @@ def setup_logging():
     Configure logging from external JSON file.
     This should be called once at application startup.
     """
-    # Load configuration file
-    config_file = Path("log_config.json")
+    # Get project root directory
+    project_root = Path(__file__).parents[2]
+    config_file = project_root / "src" / "logger" / "log_config.json"
+
     with open(config_file) as f_in:
         config = json.load(f_in)
+
+    # Resolve log file paths relative to project root
+    # This ensures logs are always written to the correct location
+    for handler_name, handler_config in config.get("handlers", {}).items():
+        if "filename" in handler_config:
+            # Convert relative path to absolute path based on project root
+            log_path = project_root / handler_config["filename"]
+            log_path.parent.mkdir(parents=True, exist_ok=True)  # Create logs directory
+            handler_config["filename"] = str(log_path)
 
     # Apply configuration
     logging.config.dictConfig(config)
