@@ -1,30 +1,7 @@
-from dataclasses import dataclass, field
 from typing import Optional, Dict
 import pandas as pd
 import numpy as np
-
-
-@dataclass
-class FeatureConfig:
-    """Configuration for a feature group with optional parameters."""
-    name: str
-    windows: Optional[list[int]] = None
-    params: dict = field(default_factory=dict)
-
-
-@dataclass
-class ColumnMapping:
-    """Mapping of standard column names to dataset-specific column names."""
-    open: str = 'Open'
-    high: str = 'High'
-    low: str = 'Low'
-    close: str = 'Close'
-    volume: str = 'Volume'
-
-    @classmethod
-    def from_dict(cls, mapping: dict) -> 'ColumnMapping':
-        """Create ColumnMapping from a dictionary."""
-        return cls(**mapping)
+from models import FeatureConfig, ColumnMapping
 
 
 class BasicFeatures:

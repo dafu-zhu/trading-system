@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Dict, Optional
+from typing import List
 import utils
 
 logger = logging.getLogger("src.data")
@@ -59,3 +59,7 @@ class Preprocessor:
         self.df = df
 
         return df
+
+    def add_features(self, features: List[int]):
+        # TODO: integrate basic features
+        pass

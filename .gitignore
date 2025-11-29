@@ -17,7 +17,7 @@ wheels/
 .idea/
 
 # Secrets
-.env/
+.env
 
 # dependency
 dependency/

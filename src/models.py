@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import datetime
 from abc import abstractmethod, ABC
+from typing import Optional
 
 
 @dataclass
@@ -52,3 +53,26 @@ class PortfolioComponent(ABC):
     @abstractmethod
     def __repr__(self) -> str:
         pass
+
+
+@dataclass
+class FeatureConfig:
+    """Configuration for a feature group with optional parameters."""
+    name: str
+    windows: Optional[list[int]] = None
+    params: dict = field(default_factory=dict)
+
+
+@dataclass
+class ColumnMapping:
+    """Mapping of standard column names to dataset-specific column names."""
+    open: str = 'Open'
+    high: str = 'High'
+    low: str = 'Low'
+    close: str = 'Adj Close'
+    volume: str = 'Volume'
+
+    @classmethod
+    def from_dict(cls, mapping: dict) -> 'ColumnMapping':
+        """Create ColumnMapping from a dictionary."""
+        return cls(**mapping)
