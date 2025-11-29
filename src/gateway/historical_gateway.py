@@ -40,6 +40,14 @@ class HistoricalGateway(Gateway):
         logger.info(f"Initialized HistoricalGateway for symbols: {self.symbols}")
 
     def connect(self) -> bool:
+        """
+        Load historical dataframe
+        :return: True if successfully loaded, False otherwise
+
+        Features:
+        - Load historical data by 'Preprocessor' class, calculate basic features if needed
+        - Merge data from different symbols into one, in chronological order
+        """
         try:
             logger.info(f"Loading historical data for {len(self.symbols)} symbol(s)...")
 
@@ -97,7 +105,10 @@ class HistoricalGateway(Gateway):
         return self.connected
 
     def stream_data(self) -> Iterator[MarketDataPoint]:
-
+        """
+        Simulate real time market data feed using generator
+        :return: MarketDataPoint as single tick
+        """
         if not self.connected or self.merged_data is None:
             raise RuntimeError("Gateway not connected. Call connect() first.")
 
@@ -119,10 +130,11 @@ class HistoricalGateway(Gateway):
         logger.info("Data stream complete")
 
     def get_current_tick(self) -> Optional[MarketDataPoint]:
-
+        # Edge case: no data
         if not self.connected or self.merged_data is None:
             return None
 
+        # Edge case: run to the end of data
         if self.current_index >= len(self.merged_data):
             return None
 
@@ -135,18 +147,15 @@ class HistoricalGateway(Gateway):
             price=float(row[self.price_column])
         )
 
-    def get_next_tick(self) -> Optional[MarketDataPoint]:
-
+    def move_on(self) -> Optional[MarketDataPoint]:
+        """
+        Integrate get current data and increase index
+        :return: current tick
+        """
         tick = self.get_current_tick()
         if tick is not None:
             self.current_index += 1
         return tick
-
-    def has_more_data(self) -> bool:
-
-        if not self.connected or self.merged_data is None:
-            return False
-        return self.current_index < len(self.merged_data)
 
     def reset(self) -> None:
         """Reset stream to beginning."""
@@ -154,7 +163,11 @@ class HistoricalGateway(Gateway):
         logger.info("Gateway stream reset to beginning")
 
     def seek(self, index: int) -> None:
-
+        """
+        Jump to specified timestamp
+        :param index: time
+        :return: None
+        """
         if not self.connected or self.merged_data is None:
             raise RuntimeError("Gateway not connected")
 
@@ -165,6 +178,12 @@ class HistoricalGateway(Gateway):
         logger.info(f"Gateway stream seeked to index {index}")
 
     def get_data_slice(self, start_idx: int, end_idx: int) -> pd.DataFrame:
+        """
+        Slice from data stream source (historical dataframe)
+        :return: sliced dataframe
+        """
+        if start_idx > end_idx:
+            raise ValueError(f"Start must be smaller then end, got {start_idx} > {end_idx}")
 
         if not self.connected or self.merged_data is None:
             raise RuntimeError("Gateway not connected")
@@ -173,10 +192,7 @@ class HistoricalGateway(Gateway):
 
     def get_full_data(self) -> pd.DataFrame:
         """
-        Get full dataset (useful for analysis after backtest).
-
-        Returns:
-            DataFrame: Complete historical data
+        Return the complete data stream source
         """
         if not self.connected or self.merged_data is None:
             raise RuntimeError("Gateway not connected")
@@ -232,7 +248,7 @@ if __name__ == '__main__':
 
         # Reset and get first tick
         gateway.reset()
-        first_tick = gateway.get_next_tick()
+        first_tick = gateway.move_on()
         print(f"\nAfter reset, first tick: {first_tick.timestamp} | ${first_tick.price:.2f}")
 
         gateway.disconnect()
