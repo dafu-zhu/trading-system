@@ -13,12 +13,12 @@ class MACDStrategy(Strategy):
 
     def __init__(
             self,
-            file_path: Path,
+            data_path: Path,
             fast_period: int = 12,
             slow_period: int = 26,
             signal_period: int = 9
     ):
-        self.file_path = file_path
+        self.data_path = data_path
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.signal_period = signal_period
@@ -26,8 +26,9 @@ class MACDStrategy(Strategy):
 
     def get_data(self, symbol: str):
         """Load and prepare data with MACD features."""
+        file_path = self.data_path / f"{symbol}.csv"
         self.df = (
-            Preprocessor(self.file_path / f"{symbol}.csv")
+            Preprocessor(file_path)
             .load()
             .clean()
             .add_features(
@@ -112,7 +113,7 @@ if __name__ == '__main__':
 
     # Initialize strategy
     strategy = MACDStrategy(
-        file_path=YF_DATA_PATH,
+        data_path=YF_DATA_PATH,
         fast_period=12,
         slow_period=26,
         signal_period=9

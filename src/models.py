@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import datetime
 from abc import abstractmethod, ABC
-from typing import Optional
+from typing import Optional, Iterator
 
 
 @dataclass
@@ -81,4 +81,58 @@ class ColumnMapping:
 class Strategy(ABC):
     @abstractmethod
     def generate_signals(self, tick: MarketDataPoint) -> list:
+        pass
+
+
+class Gateway(ABC):
+    """
+    Abstract base class for market data gateways.
+
+    A gateway is responsible for providing market data to the trading system,
+    either from live sources or historical data files.
+    """
+
+    @abstractmethod
+    def connect(self) -> bool:
+        """
+        Establish connection to the data source.
+
+        Returns:
+            bool: True if connection successful, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def disconnect(self) -> None:
+        """Disconnect from the data source."""
+        pass
+
+    @abstractmethod
+    def stream_data(self) -> Iterator[MarketDataPoint]:
+        """
+        Stream market data points.
+
+        Yields:
+            MarketDataPoint: Individual market data ticks
+        """
+        pass
+
+    @abstractmethod
+    def is_connected(self) -> bool:
+        """
+        Check if gateway is connected.
+
+        Returns:
+            bool: True if connected, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def get_current_tick(self) -> Optional[MarketDataPoint]:
+        """
+        Get the current market data point without advancing.
+
+        Returns:
+            Optional[MarketDataPoint]: Current tick or None if not available
+        """
         pass
