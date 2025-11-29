@@ -76,3 +76,9 @@ class ColumnMapping:
     def from_dict(cls, mapping: dict) -> 'ColumnMapping':
         """Create ColumnMapping from a dictionary."""
         return cls(**mapping)
+
+
+class Strategy(ABC):
+    @abstractmethod
+    def generate_signals(self, tick: MarketDataPoint) -> list:
+        pass

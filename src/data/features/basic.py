@@ -303,7 +303,7 @@ if __name__ == '__main__':
     print()
 
     from data.preprocessing import Preprocessor, YF_DATA_PATH
-    df = Preprocessor(YF_DATA_PATH / "AAPL.csv").load().clean()
+    df = Preprocessor(YF_DATA_PATH / "AAPL.csv").load().clean().get_data
 
     # Example 3: Using with default column names (Open, High, Low, Close, Volume)
     # Assuming you have a DataFrame df with standard Yahoo Finance columns
