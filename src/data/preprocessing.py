@@ -73,6 +73,14 @@ class Preprocessor:
             col_mapping: Optional[ColumnMapping] = None,
             **feature_kwargs
     ) -> 'Preprocessor':
+        """
+        Add
+        :param features:
+        :param windows:
+        :param col_mapping:
+        :param feature_kwargs:
+        :return:
+        """
         if self.df is None or not self.cleaned:
             self.load().clean()
 

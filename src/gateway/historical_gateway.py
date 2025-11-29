@@ -13,17 +13,7 @@ setup_logging()
 
 class HistoricalGateway(Gateway):
     """
-    Gateway for streaming historical market data from CSV files.
-
-    This gateway reads cleaned CSV files and streams them row-by-row
-    to simulate real-time market data feed for backtesting.
-
-    Features:
-        - Reads cleaned CSV files from preprocessing
-        - Streams data incrementally (row-by-row)
-        - Supports single or multiple symbols
-        - Maintains current position in data stream
-        - Can reset and replay data
+    Simulate market data gateway using historical data
     """
     def __init__(
         self,
@@ -34,17 +24,6 @@ class HistoricalGateway(Gateway):
         feature_list: Optional[List[str]] = None,
         **feature_kwargs
     ):
-        """
-        Initialize historical gateway.
-
-        Args:
-            data_path: Path to directory containing CSV files
-            symbols: Single symbol or list of symbols to stream
-            price_column: Column name to use as price
-            load_features: Whether to load technical features
-            feature_list: List of features to calculate if load_features=True
-            **feature_kwargs: Additional arguments for feature calculation
-        """
         self.data_path = Path(data_path)
         self.symbols = [symbols] if isinstance(symbols, str) else symbols
         self.price_column = price_column
@@ -61,12 +40,6 @@ class HistoricalGateway(Gateway):
         logger.info(f"Initialized HistoricalGateway for symbols: {self.symbols}")
 
     def connect(self) -> bool:
-        """
-        Load historical data from CSV files.
-
-        Returns:
-            bool: True if data loaded successfully
-        """
         try:
             logger.info(f"Loading historical data for {len(self.symbols)} symbol(s)...")
 
@@ -118,20 +91,13 @@ class HistoricalGateway(Gateway):
         self.connected = False
         logger.info("Gateway disconnected")
 
+    @property
     def is_connected(self) -> bool:
         """Check if gateway is connected."""
         return self.connected
 
     def stream_data(self) -> Iterator[MarketDataPoint]:
-        """
-        Stream market data points sequentially.
 
-        Yields:
-            MarketDataPoint: Individual market data ticks
-
-        Raises:
-            RuntimeError: If gateway is not connected
-        """
         if not self.connected or self.merged_data is None:
             raise RuntimeError("Gateway not connected. Call connect() first.")
 
@@ -153,12 +119,7 @@ class HistoricalGateway(Gateway):
         logger.info("Data stream complete")
 
     def get_current_tick(self) -> Optional[MarketDataPoint]:
-        """
-        Get the current market data point without advancing the stream.
 
-        Returns:
-            Optional[MarketDataPoint]: Current tick or None if at end
-        """
         if not self.connected or self.merged_data is None:
             return None
 
@@ -175,24 +136,14 @@ class HistoricalGateway(Gateway):
         )
 
     def get_next_tick(self) -> Optional[MarketDataPoint]:
-        """
-        Get the next market data point and advance the stream.
 
-        Returns:
-            Optional[MarketDataPoint]: Next tick or None if at end
-        """
         tick = self.get_current_tick()
         if tick is not None:
             self.current_index += 1
         return tick
 
     def has_more_data(self) -> bool:
-        """
-        Check if more data is available in the stream.
 
-        Returns:
-            bool: True if more data available
-        """
         if not self.connected or self.merged_data is None:
             return False
         return self.current_index < len(self.merged_data)
@@ -203,12 +154,7 @@ class HistoricalGateway(Gateway):
         logger.info("Gateway stream reset to beginning")
 
     def seek(self, index: int) -> None:
-        """
-        Seek to specific position in stream.
 
-        Args:
-            index: Position to seek to
-        """
         if not self.connected or self.merged_data is None:
             raise RuntimeError("Gateway not connected")
 
@@ -219,16 +165,7 @@ class HistoricalGateway(Gateway):
         logger.info(f"Gateway stream seeked to index {index}")
 
     def get_data_slice(self, start_idx: int, end_idx: int) -> pd.DataFrame:
-        """
-        Get a slice of the data without affecting stream position.
 
-        Args:
-            start_idx: Start index (inclusive)
-            end_idx: End index (exclusive)
-
-        Returns:
-            DataFrame: Slice of data
-        """
         if not self.connected or self.merged_data is None:
             raise RuntimeError("Gateway not connected")
 

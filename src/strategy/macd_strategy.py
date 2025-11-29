@@ -24,7 +24,7 @@ class MACDStrategy(Strategy):
         self.signal_period = signal_period
         self.df = None
 
-    def get_data(self, symbol: str):
+    def get_data(self, symbol: str) -> pd.DataFrame:
         """Load and prepare data with MACD features."""
         file_path = self.data_path / f"{symbol}.csv"
         self.df = (

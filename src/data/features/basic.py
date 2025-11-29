@@ -76,16 +76,7 @@ class BasicFeatures:
 
     @classmethod
     def get_config(cls, feature_name: str, **kwargs) -> FeatureConfig:
-        """
-        Get configuration for a feature group with optional parameter overrides.
 
-        Args:
-            feature_name: Name of the feature group
-            **kwargs: Optional parameter overrides (e.g., windows=[10, 20], window=30)
-
-        Returns:
-            FeatureConfig with default or custom parameters
-        """
         if feature_name not in cls.DEFAULT_CONFIGS:
             raise ValueError(f"Unknown feature: {feature_name}")
 
@@ -105,15 +96,7 @@ class BasicFeatures:
 
     @classmethod
     def get_default_params(cls, feature_name: str) -> dict:
-        """
-        Get the default parameters for a feature group.
 
-        Args:
-            feature_name: Name of the feature group
-
-        Returns:
-            Dictionary containing default parameters (windows and/or params)
-        """
         if feature_name not in cls.DEFAULT_CONFIGS:
             raise ValueError(f"Unknown feature: {feature_name}")
 
@@ -140,19 +123,7 @@ class BasicFeatures:
         col_mapping: Optional[ColumnMapping] = None,
         **feature_kwargs
     ) -> pd.DataFrame:
-        """
-        Calculate specified features on a DataFrame.
 
-        Args:
-            df: Input DataFrame (will be copied, not modified in place)
-            features: List of feature group names to calculate
-            col_mapping: Column name mapping (uses defaults if None)
-            **feature_kwargs: Override parameters for specific features
-                Example: windows=[10,20], rsi_window=21, bollinger_window=30
-
-        Returns:
-            DataFrame with calculated features added
-        """
         if col_mapping is None:
             col_mapping = ColumnMapping()
 

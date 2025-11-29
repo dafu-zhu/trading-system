@@ -24,3 +24,6 @@ dependency/
 
 # data
 **/storage
+
+# claude
+.claude/
