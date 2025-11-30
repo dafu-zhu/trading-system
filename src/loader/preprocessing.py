@@ -1,18 +1,16 @@
 import logging
+import os
+
 import pandas as pd
-import numpy as np
 from pathlib import Path
 from typing import List, Optional
-
-from pandas import RangeIndex
-
-import utils
-from data.features.basic import BasicFeatures, ColumnMapping
+from dotenv import load_dotenv
+from loader.features.basic import BasicFeatures, ColumnMapping
 
 logger = logging.getLogger("src.data")
+load_dotenv()
 
-ROOT_PATH = utils.path(end_point='src')
-YF_DATA_PATH = ROOT_PATH / "data" / "storage" / "yfinance" / "ticks"
+YF_DATA_PATH = os.getenv("YF_TICK_PATH")
 
 class Preprocessor:
     def __init__(self, file_path: Path) -> None:

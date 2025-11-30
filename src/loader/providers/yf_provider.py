@@ -1,14 +1,16 @@
 import logging
+import os
+
 import pandas as pd
 import yfinance as yf
 from pathlib import Path
 from typing import Dict
-import utils
-
-ROOT_PATH = utils.path(end_point="src")
-YF_DATA_PATH = ROOT_PATH / "data" / "storage" / "yfinance" / "ticks"
+from dotenv import load_dotenv
 
 logger = logging.getLogger("src.data.providers.yf_provider")
+load_dotenv()
+
+YF_DATA_PATH = os.getenv("YF_TICK_PATH")
 
 class YfinanceProvider:
 

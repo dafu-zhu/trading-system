@@ -273,7 +273,7 @@ if __name__ == '__main__':
     print("MACD defaults:", BasicFeatures.get_default_params('macd'))
     print()
 
-    from data.preprocessing import Preprocessor, YF_DATA_PATH
+    from loader.preprocessing import Preprocessor, YF_DATA_PATH
     df = Preprocessor(YF_DATA_PATH / "AAPL.csv").load().clean().get_data
 
     # Example 3: Using with default column names (Open, High, Low, Close, Volume)

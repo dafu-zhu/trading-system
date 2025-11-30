@@ -1,7 +1,7 @@
 from models import Strategy, MarketDataPoint
 import pandas as pd
 from pathlib import Path
-from data.preprocessing import Preprocessor
+from loader.preprocessing import Preprocessor
 
 
 class MACDStrategy(Strategy):
@@ -105,7 +105,7 @@ class MACDStrategy(Strategy):
 
 
 if __name__ == '__main__':
-    from data.preprocessing import YF_DATA_PATH
+    from loader.preprocessing import YF_DATA_PATH
 
     print("=" * 70)
     print("MACD Strategy Example")
