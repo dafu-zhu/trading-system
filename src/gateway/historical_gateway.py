@@ -4,7 +4,7 @@ import pandas as pd
 import logging
 
 from models import MarketDataPoint, Gateway
-from loader.preprocessing import Preprocessor
+from data_loader.preprocessing import Preprocessor
 from logger.logger import setup_logging
 
 logger = logging.getLogger("src.gateway")
@@ -213,7 +213,7 @@ class HistoricalGateway(Gateway):
 
 
 if __name__ == '__main__':
-    from loader.preprocessing import YF_DATA_PATH
+    from data_loader.preprocessing import YF_DATA_PATH
 
     print("=" * 70)
     print("Historical Gateway Example")

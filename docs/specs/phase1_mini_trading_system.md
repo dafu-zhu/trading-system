@@ -156,8 +156,8 @@ The following example shows handling of a single message. Your main should handl
 
 ```python
 from fix_parser import FixParser
-from execution.order import Order, OrderState
-from execution.risk_engine import RiskEngine
+from orders.order import Order, OrderState
+from orders.risk_engine import RiskEngine
 from logger import Logger
 
 fix = FixParser()

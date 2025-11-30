@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from logger.logger import setup_logging
 
-logger = logging.getLogger("order")
+logger = logging.getLogger("src.order")
 setup_logging()
 
 

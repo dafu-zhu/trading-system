@@ -1,9 +1,9 @@
 import heapq
 import logging
 from typing import List, Tuple, Optional
-from execution.order import Order, OrderSide, OrderState
+from orders.order import Order, OrderSide, OrderState
 
-logger = logging.getLogger("orderbook")
+logger = logging.getLogger("src.order")
 
 
 class OrderBook:

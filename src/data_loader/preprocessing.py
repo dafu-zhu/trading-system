@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 from typing import List, Optional
 from dotenv import load_dotenv
-from loader.features.basic import BasicFeatures, ColumnMapping
+from data_loader.features.basic import BasicFeatures, ColumnMapping
 
 logger = logging.getLogger("src.data")
 load_dotenv()

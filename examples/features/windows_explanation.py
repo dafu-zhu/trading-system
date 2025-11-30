@@ -3,7 +3,7 @@ Clear explanation of 'windows' parameter design in BasicFeatures.
 """
 import pandas as pd
 import numpy as np
-from loader.features.basic import BasicFeatures
+from data_loader.features.basic import BasicFeatures
 
 # Create simple test data
 np.random.seed(42)
