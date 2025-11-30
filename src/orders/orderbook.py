@@ -1,7 +1,7 @@
 import heapq
 import logging
 from typing import List, Tuple, Optional
-from orders.order import Order, OrderState
+from orders.order import Order, OrderState, OrderSide
 
 logger = logging.getLogger("src.order")
 
@@ -84,7 +84,8 @@ class OrderBook:
 
         return executions
 
-    def _can_match(self, incoming_order: Order, book_order: Order) -> bool:
+    @staticmethod
+    def _can_match(incoming_order: Order, book_order: Order) -> bool:
         """
         Check if two orders can match based on price.
 
@@ -155,28 +156,28 @@ class OrderBook:
         :param order_id: The order ID to cancel
         :return: True if order was found and canceled
         """
-        # Search in bid orders
-        for i, order in enumerate(self.bid_orders):
-            if order.order_id == order_id:
-                if order.is_active:
+        def cancel(orders: List[Order]):
+            completed = False
+            for i, order in enumerate(orders):
+                if order.is_active and order.order_id == order_id:
                     order.transition(OrderState.CANCELED)
-                    self.bid_orders.pop(i)
-                    heapq.heapify(self.bid_orders)
-                    logger.info(f"Canceled order {order_id} from bids")
-                    return True
+                    orders.pop(i)
+                    heapq.heapify(orders)
+                    logger.info(f"Canceled order {order_id}")
+                    completed = True
+            return completed
 
-        # Search in ask orders
-        for i, order in enumerate(self.ask_orders):
-            if order.order_id == order_id:
-                if order.is_active:
-                    order.transition(OrderState.CANCELED)
-                    self.ask_orders.pop(i)
-                    heapq.heapify(self.ask_orders)
-                    logger.info(f"Canceled order {order_id} from asks")
-                    return True
+        res = False
+        bid_n_ask = [self.bid_orders, self.ask_orders]
+        for side_order in bid_n_ask:
+            res = cancel(side_order)
+            if res:
+                break
 
-        logger.warning(f"Order {order_id} not found in order book")
-        return False
+        if not res:
+            logger.warning(f"Order {order_id} not found in order book")
+
+        return res
 
     def clear(self):
         """Clear all orders from the order book."""

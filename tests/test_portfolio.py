@@ -143,7 +143,7 @@ class TestPortfolio:
         portfolio = Portfolio()
         assert portfolio.root is not None
         assert portfolio.root.name == "root"
-        assert len(portfolio._position_index) == 0
+        assert len(portfolio._position_index) == 1
 
     def test_add_position_to_root(self):
         """Test adding position to root group"""
@@ -151,7 +151,7 @@ class TestPortfolio:
         pos = Position("AAPL", 100, 150.0)
         portfolio.add_position(pos, portfolio.root)
 
-        assert len(portfolio._position_index) == 1
+        assert len(portfolio._position_index) == 2
         assert "AAPL" in portfolio._position_index
         assert portfolio._position_index["AAPL"] == pos
 
@@ -164,7 +164,7 @@ class TestPortfolio:
         pos = Position("AAPL", 100, 150.0)
         portfolio.add_position(pos, tech_group)
 
-        assert len(portfolio._position_index) == 1
+        assert len(portfolio._position_index) == 2
         assert "AAPL" in portfolio._position_index
 
     def test_update_quantity_existing_symbol(self):
@@ -202,20 +202,20 @@ class TestPortfolio:
 
     def test_get_total_value_single_position(self):
         """Test total portfolio value with single position"""
-        portfolio = Portfolio()
+        portfolio = Portfolio(init_capital=0)
         portfolio.add_position(Position("AAPL", 100, 150.0), portfolio.root)
         assert portfolio.get_total_value() == 15000.0
 
     def test_get_total_value_multiple_positions(self):
         """Test total portfolio value with multiple positions"""
-        portfolio = Portfolio()
+        portfolio = Portfolio(init_capital=0)
         portfolio.add_position(Position("AAPL", 100, 150.0), portfolio.root)
         portfolio.add_position(Position("GOOGL", 50, 200.0), portfolio.root)
         assert portfolio.get_total_value() == 25000.0
 
     def test_get_total_value_nested_groups(self):
         """Test total portfolio value with nested groups"""
-        portfolio = Portfolio()
+        portfolio = Portfolio(init_capital=0)
         tech = PortfolioGroup("Tech")
         finance = PortfolioGroup("Finance")
 
@@ -228,9 +228,9 @@ class TestPortfolio:
         assert portfolio.get_total_value() == 22500.0
 
     def test_get_total_value_empty_portfolio(self):
-        """Test total value of empty portfolio"""
-        portfolio = Portfolio()
-        assert portfolio.get_total_value() == 0.0
+        """Test total value with only cash"""
+        portfolio = Portfolio(init_capital=1000)
+        assert portfolio.get_total_value() == 1000.0
 
     def test_get_position_existing_symbol(self):
         """Test getting position for existing symbol"""
@@ -257,7 +257,7 @@ class TestPortfolio:
         portfolio.add_position(Position("GOOGL", 50, 200.0), portfolio.root)
 
         positions = portfolio.get_positions()
-        assert len(positions) == 2
+        assert len(positions) == 3
         symbols = [p["symbol"] for p in positions]
         assert "AAPL" in symbols
         assert "GOOGL" in symbols
@@ -266,7 +266,7 @@ class TestPortfolio:
         """Test getting positions from empty portfolio"""
         portfolio = Portfolio()
         positions = portfolio.get_positions()
-        assert len(positions) == 0
+        assert len(positions) == 1
 
     def test_duplicate_symbol_different_groups(self):
         """Test adding same symbol to different groups - LOGIC ERROR"""
@@ -283,7 +283,7 @@ class TestPortfolio:
 
     def test_value_after_quantity_update(self):
         """Test that value changes correctly after quantity update"""
-        portfolio = Portfolio()
+        portfolio = Portfolio(init_capital=0)
         pos = Position("AAPL", 100, 150.0)
         portfolio.add_position(pos, portfolio.root)
 
@@ -296,7 +296,7 @@ class TestPortfolio:
 
     def test_value_after_price_update(self):
         """Test that value changes correctly after price update"""
-        portfolio = Portfolio()
+        portfolio = Portfolio(init_capital=0)
         pos = Position("AAPL", 100, 150.0)
         portfolio.add_position(pos, portfolio.root)
 
@@ -328,13 +328,13 @@ class TestPositionParametrized:
 @pytest.fixture
 def empty_portfolio():
     """Fixture that provides an empty portfolio"""
-    return Portfolio()
+    return Portfolio(init_capital=0)
 
 
 @pytest.fixture
 def portfolio_with_positions():
     """Fixture that provides a portfolio with sample positions"""
-    portfolio = Portfolio()
+    portfolio = Portfolio(init_capital=1000)
     portfolio.add_position(Position("AAPL", 100, 150.0), portfolio.root)
     portfolio.add_position(Position("GOOGL", 50, 200.0), portfolio.root)
     portfolio.add_position(Position("MSFT", 75, 300.0), portfolio.root)
@@ -350,10 +350,10 @@ class TestPortfolioWithFixtures:
 
     def test_portfolio_total_value(self, portfolio_with_positions):
         """Test total value calculation with fixtures"""
-        # 100*150 + 50*200 + 75*300 = 15000 + 10000 + 22500 = 47500
-        assert portfolio_with_positions.get_total_value() == 47500.0
+        # 1000 + 100*150 + 50*200 + 75*300 = 15000 + 10000 + 22500 = 48500
+        assert portfolio_with_positions.get_total_value() == 48500.0
 
-    def test_portfolio_has_three_positions(self, portfolio_with_positions):
-        """Test that fixture portfolio has three positions"""
+    def test_portfolio_has_four_positions(self, portfolio_with_positions):
+        """Test that fixture portfolio has four positions"""
         positions = portfolio_with_positions.get_positions()
-        assert len(positions) == 3
+        assert len(positions) == 4

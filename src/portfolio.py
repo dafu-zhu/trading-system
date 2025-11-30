@@ -4,7 +4,7 @@ from models import PortfolioComponent
 class Position(PortfolioComponent):
     """Leaf node: single position in the portfolio tree."""
 
-    def __init__(self, symbol: str, quantity: int, price: float):
+    def __init__(self, symbol: str, quantity: float, price: float):
         self.symbol = symbol
         self.quantity = quantity
         self.price = price
@@ -61,9 +61,12 @@ class Portfolio:
     """
     Efficient interface for tree-based portfolio structure
     """
-    def __init__(self):
+    def __init__(self, init_capital: float=1_000_000):
         self.root = PortfolioGroup("root")
         self._position_index: dict[str, Position] = {}
+        # add cash as a separate position
+        initial_position = Position("cash", init_capital, 1)
+        self.add_position(initial_position, self.root)
 
     def add_position(self, position: Position, group: PortfolioGroup):
         if position.symbol in self._position_index:
