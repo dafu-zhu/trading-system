@@ -1,7 +1,7 @@
 import heapq
 import logging
 from typing import List, Tuple, Optional
-from orders.order import Order, OrderSide, OrderState
+from orders.order import Order, OrderState
 
 logger = logging.getLogger("src.order")
 

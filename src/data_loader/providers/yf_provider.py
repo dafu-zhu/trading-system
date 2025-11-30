@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Dict
 from dotenv import load_dotenv
 
+import utils
+
 logger = logging.getLogger("src.data.providers.yf_provider")
 load_dotenv()
 
-YF_DATA_PATH = os.getenv("YF_TICK_PATH")
 
 class YfinanceProvider:
 
@@ -54,6 +55,8 @@ class YfinanceProvider:
 if __name__ == '__main__':
     from logger.logger import setup_logging
     setup_logging()
-    yfp = YfinanceProvider(YF_DATA_PATH)
+    root_path = utils.get_root()
+    YF_DATA_PATH = os.getenv("YF_TICK_PATH")
+    yfp = YfinanceProvider(root_path / Path(YF_DATA_PATH))
     tickers = ['AAPL', 'MSFT']
     yfp.download(tickers=tickers, store=True)

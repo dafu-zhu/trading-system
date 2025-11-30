@@ -1,8 +1,9 @@
+import os
 from pathlib import Path
 from typing import Iterator, Optional, List, Union
 import pandas as pd
 import logging
-
+import utils
 from models import MarketDataPoint, Gateway
 from data_loader.preprocessing import Preprocessor
 from logger.logger import setup_logging
@@ -50,9 +51,10 @@ class HistoricalGateway(Gateway):
         """
         try:
             logger.info(f"Loading historical data for {len(self.symbols)} symbol(s)...")
-
+            root_path = utils.get_root()
+            abs_data_path = root_path / self.data_path
             for symbol in self.symbols:
-                file_path = self.data_path / f"{symbol}.csv"
+                file_path = abs_data_path / f"{symbol}.csv"
 
                 if not file_path.exists():
                     logger.error(f"Data file not found: {file_path}")
@@ -213,7 +215,9 @@ class HistoricalGateway(Gateway):
 
 
 if __name__ == '__main__':
-    from data_loader.preprocessing import YF_DATA_PATH
+    from dotenv import load_dotenv
+    load_dotenv()
+    YF_DATA_PATH = Path(os.getenv("YF_TICK_PATH"))
 
     print("=" * 70)
     print("Historical Gateway Example")

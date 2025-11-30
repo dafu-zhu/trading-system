@@ -23,7 +23,7 @@ wheels/
 dependency/
 
 # data
-**/storage
+data/
 
 # claude
 .claude/

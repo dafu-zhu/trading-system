@@ -10,7 +10,6 @@ from data_loader.features.basic import BasicFeatures, ColumnMapping
 logger = logging.getLogger("src.data")
 load_dotenv()
 
-YF_DATA_PATH = os.getenv("YF_TICK_PATH")
 
 class Preprocessor:
     def __init__(self, file_path: Path) -> None:
@@ -99,8 +98,11 @@ class Preprocessor:
 
 if __name__ == '__main__':
     # Example
+    import utils
+    root_path = utils.get_root()
+    YF_DATA_PATH = Path(os.getenv("YF_TICK_PATH"))
     df = (
-        Preprocessor(YF_DATA_PATH / "AAPL.csv")
+        Preprocessor(root_path / YF_DATA_PATH / "AAPL.csv")
         .load()
         .clean()
         .add_features(
