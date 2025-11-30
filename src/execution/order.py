@@ -73,13 +73,9 @@ class Order:
 
     def fill(self, qty: float) -> float:
         """
-        Fill (partially or fully) the order.
-
-        Args:
-            qty: Quantity to fill
-
-        Returns:
-            Actual quantity filled
+        Fill or partially fill the order
+        :param qty: non-negative order quantity
+        :return: actual order quantity made
         """
         if qty <= 0:
             raise ValueError(f"Fill quantity must be positive, got {qty}")
@@ -104,18 +100,22 @@ class Order:
 
         return actual_fill
 
+    @property
     def is_buy(self) -> bool:
         """Check if order is a buy order."""
         return self.side == OrderSide.BUY
 
+    @property
     def is_sell(self) -> bool:
         """Check if order is a sell order."""
         return self.side == OrderSide.SELL
 
+    @property
     def is_filled(self) -> bool:
         """Check if order is fully filled."""
         return self.state == OrderState.FILLED
 
+    @property
     def is_active(self) -> bool:
         """Check if order is active (can be filled)."""
         return self.state in [OrderState.ACKED, OrderState.PARTIALLY_FILLED]
@@ -126,10 +126,11 @@ class Order:
                 f"filled={self.filled_qty}, price=${self.price:.2f}, "
                 f"state={self.state.name})")
 
-    def __lt__(self, other):
-        """Comparison for heap ordering (price-time priority)."""
-        # For buy orders (max heap): higher price first, then earlier time
-        # For sell orders (min heap): lower price first, then earlier time
+    def __lt__(self, other: 'Order'):
         if self.price != other.price:
-            return self.price < other.price
-        return self.timestamp > other.timestamp
+            if self.side == OrderSide.BUY:
+                return self.price > other.price
+            elif self.side == OrderSide.SELL:
+                return self.price < other.price
+
+        return self.timestamp < other.timestamp

@@ -1,4 +1,4 @@
-# Assignment 9: Mini Trading System
+# Phase 1: Mini Trading System
 
 **Due: Tue Nov 18, 2025 11:59pm**
 
@@ -156,7 +156,7 @@ The following example shows handling of a single message. Your main should handl
 
 ```python
 from fix_parser import FixParser
-from order import Order, OrderState
+from execution.order import Order, OrderState
 from risk_engine import RiskEngine
 from logger import Logger
 

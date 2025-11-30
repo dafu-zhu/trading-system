@@ -34,6 +34,8 @@ data = yf.download(tickers='AAPL', period='7d', interval='1m')
 data.to_csv('market_data.csv')
 ```
 
+Download data at `data/providers/yf_provider.py`, store at `data/storage/yfinance/ticks`.
+
 ---
 
 ### 🔧 Step 2: Clean and Organize Data
@@ -64,6 +66,9 @@ data.set_index('Datetime', inplace=True)
 data.sort_index(inplace=True)
 ```
 
+Load and clean data in `Preprocessor` class, also provide `add_features` method. Features are calculated under 
+`features/`. Make a parent class for `BasicFeatures` after more feature classes are created. 
+
 ---
 
 ### 🧠 Step 3: Create a Trading Strategy
@@ -83,6 +88,8 @@ data.sort_index(inplace=True)
 
 - A Python class that encapsulates the strategy logic and exposes methods to generate buy/sell signals from input data.
 
+Implemented a `MACDStrategy` class.
+
 ---
 
 ## 🔄 Part 2: Backtester Framework
@@ -100,6 +107,8 @@ data.sort_index(inplace=True)
 
 - A **Gateway** class that reads and feeds market data into the system incrementally.
 
+Load data processed by `Preprocessor`, yield market data point one-by-one.
+
 ---
 
 ### 📈 Step 2: Order Book Implementation
@@ -115,6 +124,8 @@ data.sort_index(inplace=True)
 **Implementation Target:**
 
 - An **OrderBook** class with methods for order management and matching.
+
+
 
 ---
 
