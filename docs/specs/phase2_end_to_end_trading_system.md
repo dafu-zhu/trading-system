@@ -125,7 +125,11 @@ Load data processed by `Preprocessor`, yield market data point one-by-one.
 
 - An **OrderBook** class with methods for order management and matching.
 
-
+OrderBook collects all bids and asks on the table. bid and ask orders are represented as heaps.
+The main method is `execute_order()`: given an order, find matching orders in the book, and 
+execute the trade. Use while loop, designate the opposite side, delete every matchable order
+on the opposite side until there's no more order to delete. By then, add the remaining incoming
+order (not in the book yet) into the book.
 
 ---
 
