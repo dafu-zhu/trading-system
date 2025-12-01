@@ -95,10 +95,8 @@ class Gateway(ABC):
     @abstractmethod
     def connect(self) -> bool:
         """
-        Establish connection to the data source.
-
-        Returns:
-            bool: True if connection successful, False otherwise
+        Connect to the data source.
+        :return bool: True if connection successful, False otherwise
         """
         pass
 
@@ -111,9 +109,7 @@ class Gateway(ABC):
     def stream_data(self) -> Iterator[MarketDataPoint]:
         """
         Stream market data points.
-
-        Yields:
-            MarketDataPoint: Individual market data ticks
+        :return yield MarketDataPoint: Individual market data ticks
         """
         pass
 
@@ -121,9 +117,7 @@ class Gateway(ABC):
     def is_connected(self) -> bool:
         """
         Check if gateway is connected.
-
-        Returns:
-            bool: True if connected, False otherwise
+        :return bool: True if connected, False otherwise
         """
         pass
 
@@ -131,8 +125,6 @@ class Gateway(ABC):
     def get_current_tick(self) -> Optional[MarketDataPoint]:
         """
         Get the current market data point without advancing.
-
-        Returns:
-            Optional[MarketDataPoint]: Current tick or None if not available
+        :return Optional[MarketDataPoint]: Current tick or None if not available
         """
         pass

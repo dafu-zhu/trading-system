@@ -50,7 +50,7 @@ class OrderManager:
         res = risk_engine.check(order)
         return res
 
-    def validate(self, order: Order) -> bool:
+    def validate_order(self, order: Order) -> bool:
         """
         Integrate all checks and talk to order book
         :return:
@@ -59,5 +59,8 @@ class OrderManager:
         is_safe = self.risk_limit(order)
         if is_sufficient and is_safe:
             return True
-        
+
         return False
+
+    def submit_order(self, order: Order) -> bool:
+        pass

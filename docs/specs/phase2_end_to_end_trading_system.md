@@ -148,6 +148,9 @@ order (not in the book yet) into the book.
 
 - An **OrderManager** class for validation and a **Gateway** class for logging orders.
 
+Built OrderManager upon Order, OrderBook, Portfolio, RiskEngine.
+Improve the Gateway class build in step 1 by add in loggers.
+
 ---
 
 ### ⚙️ Step 4: Matching Engine Simulator
