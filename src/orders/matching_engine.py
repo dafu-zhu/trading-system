@@ -5,13 +5,14 @@ Handles market and limit orders with realistic execution.
 import random
 import logging
 from typing import Dict, Optional
+from models import MatchingEngine
 from orders.order import Order, OrderState
 from orders.order_book import OrderBook
 
 logger = logging.getLogger("src.order")
 
 
-class RandomMatchingEngine:
+class RandomMatchingEngine(MatchingEngine):
     """Simulates order matching with random outcomes."""
 
     def __init__(self, fill_prob: float = 0.7, partial_fill_prob: float = 0.2):
@@ -26,12 +27,7 @@ class RandomMatchingEngine:
 
     def match(self, order: Order, order_book: OrderBook) -> Dict:
         """
-        Attempt to match an order against the order book.
         Randomly determines if order is filled, partially filled, or canceled.
-
-        :param order: The order to match
-        :param order_book: The order book to match against
-        :return: Dictionary with execution details
         """
         if order.state != OrderState.ACKED:
             logger.warning(f"Cannot match order {order.order_id} in state {order.state}")

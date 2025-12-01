@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 import datetime
 from abc import abstractmethod, ABC
 from typing import Optional, Iterator
+from orders.order import Order
+from orders.order_book import OrderBook
 
 
 @dataclass
@@ -126,5 +128,19 @@ class Gateway(ABC):
         """
         Get the current market data point without advancing.
         :return Optional[MarketDataPoint]: Current tick or None if not available
+        """
+        pass
+
+
+class MatchingEngine(ABC):
+
+    @abstractmethod
+    def match(self, order: Order, orderbook: OrderBook) -> dict:
+        """
+        Attempt to match an order against the order book.
+        :param order: The order to match
+        :param orderbook: The market order book to match against
+        :return: Dictionary with execution details (order_id, status,
+                 filled_qty, remaining_qty, message)
         """
         pass
