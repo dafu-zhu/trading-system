@@ -4,7 +4,8 @@ before putting it into the OrderBook
 """
 
 from portfolio import Portfolio
-from orders.order import Order, OrderSide, OrderState
+from orders.order import Order, OrderSide
+from orders.order_book import OrderBook
 from orders.risk_engine import RiskEngine
 
 class OrderManager:
@@ -62,5 +63,10 @@ class OrderManager:
 
         return False
 
-    def submit_order(self, order: Order) -> bool:
-        pass
+    def submit_order(self, order: Order, orderbook: OrderBook) -> bool:
+        is_valid = self.validate_order(order)
+        res = False
+        if is_valid:
+            res = orderbook.add_order(order)
+
+        return res
