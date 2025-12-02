@@ -74,7 +74,7 @@ class ExecutionEngine:
             )
 
             # Validate order through order manager
-            is_valid = self.manager.validate_order(order)
+            is_valid = self.manager.validate_order(order, self.portfolio)
             if not is_valid:
                 logger.warning(f"Order {order.order_id} blocked by OrderManager")
                 continue

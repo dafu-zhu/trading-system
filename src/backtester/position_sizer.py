@@ -38,14 +38,13 @@ class PositionSizer:
         """
         Initialize position sizer.
 
-        Args:
-            sizing_method: Method to use ('fixed', 'percent_equity', 'risk_based', 'volatility_adjusted')
-            fixed_quantity: Number of shares for 'fixed' method
-            equity_percent: Percentage of equity per position (0.10 = 10%)
-            risk_per_trade: Maximum portfolio % to risk per trade (0.02 = 2%)
-            target_volatility: Target volatility for volatility-adjusted sizing
-            min_quantity: Minimum shares to trade
-            max_quantity: Maximum shares to trade (None = no limit)
+        :param sizing_method: Method to use ('fixed', 'percent_equity', 'risk_based', 'volatility_adjusted')
+        :param fixed_quantity: Number of shares for 'fixed' method
+        :param equity_percent: Percentage of equity per position (0.10 = 10%)
+        :param risk_per_trade: Maximum portfolio % to risk per trade (0.02 = 2%)
+        :param target_volatility: Target volatility for volatility-adjusted sizing
+        :param min_quantity: Minimum shares to trade
+        :param max_quantity: Maximum shares to trade (None = no limit)
         """
         valid_methods = ['fixed', 'percent_equity', 'risk_based', 'volatility_adjusted']
         if sizing_method not in valid_methods:
@@ -68,13 +67,10 @@ class PositionSizer:
         """
         Calculate position size based on configured method.
 
-        Args:
-            signal: Trading signal dictionary (may contain 'stop_loss', 'volatility', etc.)
-            portfolio: Current portfolio state
-            price: Current price of the instrument
-
-        Returns:
-            Number of shares to trade
+        :param signal: Trading signal dictionary (may contain 'stop_loss', 'volatility', etc.)
+        :param portfolio: Current portfolio state
+        :param price: Current price of the instrument
+        :return: Number of shares to trade
         """
         if self.sizing_method == 'fixed':
             qty = self._fixed_sizing()

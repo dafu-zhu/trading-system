@@ -3,7 +3,7 @@ OrderManager acts as a gatekeeper to validate each order
 before putting it into the OrderBook
 """
 
-from portfolio import Portfolio
+from portfolio import Portfolio, Position
 from orders.order import Order, OrderSide
 from orders.order_book import OrderBook
 from orders.risk_engine import RiskEngine
@@ -11,22 +11,27 @@ from orders.risk_engine import RiskEngine
 class OrderManager:
     def __init__(
             self,
-            portfolio: Portfolio,
             max_order_size: float=1000,
             max_position: float=2000
     ):
-        self.portfolio = portfolio
         self.max_order_size = max_order_size
         self.max_position = max_position
 
-    def capital_sufficiency(self, order: Order) -> bool:
+    @staticmethod
+    def capital_sufficiency(order: Order, portfolio: Portfolio) -> bool:
         """
         Check if enough capital exists to execute the order
         :return: Sufficient or not
         """
-        symbol_pos = self.portfolio.get_position(order.symbol)[0]
+        try:
+            symbol_pos = portfolio.get_position(order.symbol)[0]
+        except ValueError as e:
+            new_pos = Position(order.symbol, order.qty, order.price)
+            portfolio.add_position(new_pos, portfolio.root)
+            symbol_pos = portfolio.get_position(order.symbol)[0]
+
         symbol_qty = symbol_pos["quantity"]
-        cash_pos = self.portfolio.get_position("cash")[0]
+        cash_pos = portfolio.get_position("cash")[0]
         cash_val = cash_pos["quantity"] * cash_pos["price"]
 
         if order.side == OrderSide.BUY:
@@ -36,7 +41,7 @@ class OrderManager:
         else:
             raise ValueError(f"Invalid order side: {order.side}")
 
-    def risk_limit(self, order: Order) -> bool:
+    def risk_limit(self, order: Order, portfolio: Portfolio) -> bool:
         """
         Check whether
         1. order exceeds single order size
@@ -44,29 +49,21 @@ class OrderManager:
         :return: Safe or not
         """
         risk_engine = RiskEngine(
-            self.portfolio,
+            portfolio,
             self.max_order_size,
             self.max_position
         )
         res = risk_engine.check(order)
         return res
 
-    def validate_order(self, order: Order) -> bool:
+    def validate_order(self, order: Order, portfolio: Portfolio) -> bool:
         """
         Integrate all checks and talk to order book
         :return:
         """
-        is_sufficient = self.capital_sufficiency(order)
-        is_safe = self.risk_limit(order)
+        is_sufficient = self.capital_sufficiency(order, portfolio)
+        is_safe = self.risk_limit(order, portfolio)
         if is_sufficient and is_safe:
             return True
 
         return False
-
-    # def submit_order(self, order: Order, orderbook: OrderBook) -> bool:
-    #     is_valid = self.validate_order(order)
-    #     res = False
-    #     if is_valid:
-    #         res = orderbook.add_order(order)
-    #
-    #     return res
