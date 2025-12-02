@@ -27,3 +27,7 @@ data/
 
 # claude
 .claude/
+
+# Generated reports
+docs/reports/*.md
+docs/reports/charts/
