@@ -1,7 +1,7 @@
 from models import Strategy, MarketDataPoint
 import pandas as pd
 from pathlib import Path
-from data_loader import Preprocessor
+from data_loader.preprocessing import Preprocessor
 
 
 class MACDStrategy(Strategy):
