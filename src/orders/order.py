@@ -95,8 +95,8 @@ class Order:
         else:
             self.state = OrderState.PARTIALLY_FILLED
 
-        logger.info(f"Order {self.order_id} filled {actual_fill} @ ${self.price} "
-                   f"(total: {self.filled_qty}/{self.qty})")
+        logger.info(f"Order {self.order_id} filled {actual_fill:.2f} @ ${self.price:.2f} "
+                   f"(total: {self.filled_qty:.2f}/{self.qty:.2f})")
 
         return actual_fill
 

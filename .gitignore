@@ -31,3 +31,6 @@ data/
 # Generated reports
 docs/reports/*.md
 docs/reports/charts/
+
+# logs
+logs/

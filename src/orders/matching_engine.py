@@ -45,7 +45,7 @@ class RandomMatchingEngine(MatchingEngine):
         if outcome < self.fill_prob:
             # Fully fill
             filled_qty = order.fill(order.remaining_qty)
-            logger.info(f"Order {order.order_id} fully filled: {filled_qty} @ ${order.price}")
+            logger.info(f"Order {order.order_id} fully filled: {filled_qty} @ ${order.price:.2f}")
             return {
                 'order_id': order.order_id,
                 'status': 'filled',
@@ -60,7 +60,8 @@ class RandomMatchingEngine(MatchingEngine):
             fill_ratio = random.uniform(0.3, 0.7)
             qty_to_fill = order.remaining_qty * fill_ratio
             filled_qty = order.fill(qty_to_fill)
-            logger.info(f"Order {order.order_id} partially filled: {filled_qty}/{order.qty} @ ${order.price}")
+            logger.info(f"Order {order.order_id} partially filled: "
+                        f"{filled_qty:.2f}/{order.qty:.2f} @ ${order.price:.2f}")
             return {
                 'order_id': order.order_id,
                 'status': 'partially_filled',

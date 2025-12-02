@@ -100,9 +100,6 @@ def run_backtest(
     # 3. Initialize components
     logger.info("[3/7] Initializing trading components...")
 
-    # Portfolio
-    portfolio = Portfolio(init_capital=initial_capital)
-
     # Order Manager
     order_manager = OrderManager(
         max_order_size=10000,
@@ -161,13 +158,13 @@ def run_backtest(
     # Get equity curve from portfolio history
     # For now, create a simple equity curve from final value
     # TODO: Track equity at each step in ExecutionEngine
-    final_value = portfolio.get_total_value()
+    final_value = engine.portfolio.get_total_value()
     logger.info(f"  Initial Capital: ${initial_capital:,.2f}")
     logger.info(f"  Final Value: ${final_value:,.2f}")
     logger.info(f"  Total Return: {(final_value/initial_capital - 1):.2%}")
 
     # Get positions
-    positions = portfolio.get_positions()
+    positions = engine.portfolio.get_positions()
     logger.info(f"  Final Positions: {len(positions)}")
     for pos in positions:
         if pos['symbol'] != 'cash' and pos['quantity'] != 0:
@@ -181,9 +178,11 @@ def run_backtest(
     trade_reports = engine.reports
     logger.info(f"  Total Order Reports: {len(trade_reports)}")
 
-    # Convert reports to trades format for analysis
-    # This is simplified - in production, track complete trade lifecycle
-    trades = []
+    # Get completed trades from trade tracker
+    trades = engine.trade_tracker.get_trades()
+    total_pnl = engine.trade_tracker.get_total_pnl()
+    logger.info(f"  Completed Trades: {len(trades)}")
+    logger.info(f"  Total PnL from Trades: ${total_pnl:,.2f}")
 
     results = {
         'strategy_name': f'MACD_{symbol}',
