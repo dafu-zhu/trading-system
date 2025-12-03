@@ -74,7 +74,7 @@ class Portfolio:
         group.add(position)     # add to tree, O(1)
         self._position_index[position.symbol] = position    # add to index
 
-    def update_quantity(self, symbol: str, delta: int):
+    def update_quantity(self, symbol: str, delta: float):
         """Update quantity of a given symbol"""
         if position := self._position_index.get(symbol):
             position.quantity += delta      # in-place update

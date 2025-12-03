@@ -54,7 +54,7 @@ class MACDStrategy(Strategy):
             row = self.df.loc[tick.timestamp]
 
             return [{
-                'action': row['signal'],
+                'action': str(row['signal']),
                 'timestamp': tick.timestamp,
                 'symbol': tick.symbol,
                 'price': tick.price,
