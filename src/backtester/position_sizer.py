@@ -10,132 +10,65 @@ Determines how many shares/contracts to trade based on various methods:
 import logging
 from typing import Dict, Optional
 from portfolio import Portfolio
+from models import PositionSizer
 
 logger = logging.getLogger("src.backtester.position_sizer")
 
 
-class PositionSizer:
+class FixedSizer(PositionSizer):
     """
-    Calculate position size based on portfolio state and risk parameters.
-
-    Supported sizing methods:
-    - 'fixed': Fixed number of shares
-    - 'percent_equity': Fixed percentage of portfolio value
-    - 'risk_based': Based on risk per trade and stop loss distance
-    - 'volatility_adjusted': Adjust size based on price volatility
+    Position sizing based on fixed number of shares
     """
+    def __init__(self, fixed_qty: float, min_qty: float=1, max_qty: Optional[float]=None):
+        self.fixed_qty = fixed_qty
+        self.min_qty = min_qty
+        self.max_qty = max_qty
 
-    def __init__(
-        self,
-        sizing_method: str = 'fixed',
-        fixed_quantity: int = 100,
-        equity_percent: float = 0.10,
-        risk_per_trade: float = 0.02,
-        target_volatility: float = 0.02,
-        min_quantity: int = 1,
-        max_quantity: Optional[int] = None
-    ):
-        """
-        Initialize position sizer.
-
-        :param sizing_method: Method to use ('fixed', 'percent_equity', 'risk_based', 'volatility_adjusted')
-        :param fixed_quantity: Number of shares for 'fixed' method
-        :param equity_percent: Percentage of equity per position (0.10 = 10%)
-        :param risk_per_trade: Maximum portfolio % to risk per trade (0.02 = 2%)
-        :param target_volatility: Target volatility for volatility-adjusted sizing
-        :param min_quantity: Minimum shares to trade
-        :param max_quantity: Maximum shares to trade (None = no limit)
-        """
-        valid_methods = ['fixed', 'percent_equity', 'risk_based', 'volatility_adjusted']
-        if sizing_method not in valid_methods:
-            raise ValueError(f"Invalid sizing_method. Must be one of {valid_methods}")
-
-        self.sizing_method = sizing_method
-        self.fixed_quantity = fixed_quantity
-        self.equity_percent = equity_percent
-        self.risk_per_trade = risk_per_trade
-        self.target_volatility = target_volatility
-        self.min_quantity = min_quantity
-        self.max_quantity = max_quantity
-
-    def calculate_qty(
-        self,
-        signal: Dict,
-        portfolio: Portfolio,
-        price: float
-    ) -> int:
-        """
-        Calculate position size based on configured method.
-
-        :param signal: Trading signal dictionary (may contain 'stop_loss', 'volatility', etc.)
-        :param portfolio: Current portfolio state
-        :param price: Current price of the instrument
-        :return: Number of shares to trade
-        """
-        if self.sizing_method == 'fixed':
-            qty = self._fixed_sizing()
-
-        elif self.sizing_method == 'percent_equity':
-            qty = self._percent_equity_sizing(portfolio, price)
-
-        elif self.sizing_method == 'risk_based':
-            qty = self._risk_based_sizing(signal, portfolio, price)
-
-        elif self.sizing_method == 'volatility_adjusted':
-            qty = self._volatility_adjusted_sizing(signal, portfolio, price)
-
-        else:
-            logger.warning(f"Unknown sizing method {self.sizing_method}, using fixed")
-            qty = self._fixed_sizing()
-
+    def calculate_qty(self, signal: dict, portfolio, price: float):
+        qty = self.fixed_qty
         # Apply constraints
-        qty = max(self.min_quantity, qty)
-        if self.max_quantity is not None:
-            qty = min(self.max_quantity, qty)
+        qty = max(self.min_qty, qty)
+        if self.max_qty is not None:
+            qty = min(self.max_qty, qty)
+        return qty
 
-        return int(qty)
 
-    def _fixed_sizing(self) -> int:
-        """Return fixed quantity."""
-        return self.fixed_quantity
+class PercentSizer(PositionSizer):
+    """
+    Equity percentage sizing
+    """
+    def __init__(self, equity_percent: float=0.10):
+        self.equity_percent = equity_percent
 
-    def _percent_equity_sizing(self, portfolio: Portfolio, price: float) -> int:
-        """
-        Size position as a percentage of total equity.
-
-        Example: If equity is $100,000 and equity_percent is 0.10,
-                 allocate $10,000 to this position.
-        """
+    def calculate_qty(self, signal: dict, portfolio, price: float):
         equity = portfolio.get_total_value()
         position_value = equity * self.equity_percent
-
         if price <= 0:
-            logger.warning(f"Invalid price {price}, using fixed sizing")
-            return self.fixed_quantity
-
+            logger.warning(f"Invalid price {price}")
         qty = position_value / price
         logger.debug(f"Percent equity sizing: equity=${equity:.2f}, "
-                    f"allocation={self.equity_percent:.1%}, qty={qty:.0f}")
-        return int(qty)
+                     f"allocation={self.equity_percent:.1%}, qty={qty:.0f}")
 
-    def _risk_based_sizing(
-        self,
-        signal: Dict,
-        portfolio: Portfolio,
-        price: float
-    ) -> int:
-        """
-        Size position based on risk per trade and stop loss distance.
+        return qty
 
-        Formula: qty = (portfolio_value * risk_per_trade) / stop_loss_distance
 
-        Example: Portfolio = $100,000, risk = 2%, price = $100, stop = $98
-                 Risk amount = $2,000
-                 Stop distance = $2
-                 Quantity = $2,000 / $2 = 1,000 shares
+class RiskBasedSizer(PositionSizer):
+    """
+    Size position based on risk per trade and stop loss distance.
 
-        Note: Signal should contain 'stop_loss' price or 'stop_loss_pct' percentage.
-        """
+    Formula: qty = (portfolio_value * risk_per_trade) / stop_loss_distance
+
+    Example: Portfolio = $100,000, risk = 2%, price = $100, stop = $98
+             Risk amount = $2,000
+             Stop distance = $2
+             Quantity = $2,000 / $2 = 1,000 shares
+
+    Note: Signal should contain 'stop_loss' price or 'stop_loss_pct' percentage.
+    """
+    def __init__(self, risk_per_trade: float):
+        self.risk_per_trade = risk_per_trade
+
+    def calculate_qty(self, signal: dict, portfolio, price: float):
         equity = portfolio.get_total_value()
         risk_amount = equity * self.risk_per_trade
 
@@ -152,47 +85,11 @@ class PositionSizer:
 
         if stop_distance <= 0:
             logger.warning(f"Invalid stop distance {stop_distance}, using fixed sizing")
-            return self.fixed_quantity
 
         qty = risk_amount / stop_distance
         logger.debug(f"Risk-based sizing: risk_amount=${risk_amount:.2f}, "
-                    f"stop_distance=${stop_distance:.2f}, qty={qty:.0f}")
-        return int(qty)
-
-    def _volatility_adjusted_sizing(
-        self,
-        signal: Dict,
-        portfolio: Portfolio,
-        price: float
-    ) -> int:
-        """
-        Adjust position size based on volatility (inverse volatility sizing).
-
-        Higher volatility → smaller position
-        Lower volatility → larger position
-
-        Formula: base_qty * (target_volatility / actual_volatility)
-
-        Note: Signal should contain 'volatility' (e.g., 20-day ATR or std dev).
-        """
-        # Get volatility from signal
-        volatility = signal.get('volatility', None)
-
-        if volatility is None or volatility <= 0:
-            logger.warning(f"Invalid volatility {volatility}, using percent equity sizing")
-            return self._percent_equity_sizing(portfolio, price)
-
-        # Calculate base quantity using percent of equity
-        base_qty = self._percent_equity_sizing(portfolio, price)
-
-        # Adjust by volatility ratio
-        vol_ratio = self.target_volatility / volatility
-        adjusted_qty = base_qty * vol_ratio
-
-        logger.debug(f"Volatility-adjusted sizing: base_qty={base_qty}, "
-                    f"volatility={volatility:.4f}, ratio={vol_ratio:.2f}, "
-                    f"adjusted_qty={adjusted_qty:.0f}")
-        return int(adjusted_qty)
+                     f"stop_distance=${stop_distance:.2f}, qty={qty:.0f}")
+        return qty
 
 
 if __name__ == '__main__':
@@ -223,14 +120,14 @@ if __name__ == '__main__':
 
     # Example 1: Fixed sizing
     print("\n[Example 1] Fixed Sizing")
-    sizer = PositionSizer(sizing_method='fixed', fixed_quantity=100)
+    sizer = FixedSizer(fixed_qty=100)
     qty = sizer.calculate_qty(signal, portfolio, price)
     print(f"  Quantity: {qty} shares")
     print(f"  Position Value: ${qty * price:,.2f}")
 
     # Example 2: Percent of equity
     print("\n[Example 2] Percent of Equity (10%)")
-    sizer = PositionSizer(sizing_method='percent_equity', equity_percent=0.10)
+    sizer = PercentSizer(equity_percent=0.10)
     qty = sizer.calculate_qty(signal, portfolio, price)
     print(f"  Quantity: {qty} shares")
     print(f"  Position Value: ${qty * price:,.2f}")
@@ -238,7 +135,7 @@ if __name__ == '__main__':
 
     # Example 3: Risk-based
     print("\n[Example 3] Risk-Based (2% risk per trade)")
-    sizer = PositionSizer(sizing_method='risk_based', risk_per_trade=0.02)
+    sizer = RiskBasedSizer(risk_per_trade=0.02)
     qty = sizer.calculate_qty(signal, portfolio, price)
     stop_distance = abs(price - signal['stop_loss'])
     max_loss = qty * stop_distance
@@ -246,30 +143,3 @@ if __name__ == '__main__':
     print(f"  Position Value: ${qty * price:,.2f}")
     print(f"  Stop Distance: ${stop_distance:.2f}")
     print(f"  Max Loss if stopped: ${max_loss:,.2f} ({max_loss/portfolio.get_total_value():.2%})")
-
-    # Example 4: Volatility adjusted
-    print("\n[Example 4] Volatility-Adjusted (target 2% vol)")
-    sizer = PositionSizer(
-        sizing_method='volatility_adjusted',
-        equity_percent=0.10,
-        target_volatility=0.02
-    )
-    qty = sizer.calculate_qty(signal, portfolio, price)
-    print(f"  Quantity: {qty} shares")
-    print(f"  Position Value: ${qty * price:,.2f}")
-    print(f"  Adjustment: Higher vol → smaller position")
-
-    # Example 5: With constraints
-    print("\n[Example 5] With Min/Max Constraints")
-    sizer = PositionSizer(
-        sizing_method='percent_equity',
-        equity_percent=0.50,  # Try to use 50%
-        min_quantity=10,
-        max_quantity=500
-    )
-    qty = sizer.calculate_qty(signal, portfolio, price)
-    print(f"  Desired: {(portfolio.get_total_value() * 0.50 / price):.0f} shares (50% equity)")
-    print(f"  Actual: {qty} shares (capped at max_quantity=500)")
-    print(f"  Position Value: ${qty * price:,.2f}")
-
-    print("\n" + "=" * 70)

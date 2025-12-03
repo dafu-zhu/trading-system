@@ -144,3 +144,17 @@ class MatchingEngine(ABC):
                  filled_qty, remaining_qty, message)
         """
         pass
+
+
+class PositionSizer(ABC):
+
+    @abstractmethod
+    def calculate_qty(self, signal: dict, portfolio, price: float):
+        """
+        Calculate position size
+        :param signal: Trading signal dictionary
+        :param portfolio: Current portfolio state
+        :param price: Current price of the instrument
+        :return: Number of shares to trade
+        """
+        pass
