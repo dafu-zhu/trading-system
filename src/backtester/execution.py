@@ -9,7 +9,7 @@ from orders.order import Order, OrderSide, OrderState
 from orders.order_manager import OrderManager
 from orders.order_book import OrderBook
 from portfolio import Portfolio, Position
-from backtester.position_sizer import PositionSizer
+from backtester.position_sizer import PositionSizer, PercentSizer
 from backtester.trade_tracker import TradeTracker
 
 logger = logging.getLogger("src.backtester")
@@ -38,8 +38,7 @@ class ExecutionEngine:
         # Track completed trades for analysis
         self.trade_tracker = TradeTracker()
         # Default to 10% equity sizing if no sizer provided
-        self.position_sizer = position_sizer or PositionSizer(
-            sizing_method='percent_equity',
+        self.position_sizer = position_sizer or PercentSizer(
             equity_percent=0.10
         )
 
@@ -58,6 +57,9 @@ class ExecutionEngine:
             symbol = signal["symbol"]
             price = signal["price"]
             side = OrderSide[signal["action"]]
+
+            # Determine side multiplier
+            side_mul = float(side.value)
 
             # Update current market price for this symbol
             self.current_prices[symbol] = price
@@ -123,23 +125,23 @@ class ExecutionEngine:
                     existing_price = existing_pos['price']
 
                     # Calculate new weighted average price
-                    total_qty = existing_qty + (filled_qty * side.value)
+                    total_qty = existing_qty + (filled_qty * side_mul)
                     if total_qty != 0:
                         new_avg_price = (
-                            (existing_qty * existing_price + filled_qty * fill_price * side.value) / total_qty
+                            (existing_qty * existing_price + filled_qty * fill_price * side_mul) / total_qty
                         )
                     else:
                         new_avg_price = fill_price
 
                     # Update position
-                    self.portfolio.update_quantity(symbol, filled_qty * side.value)
+                    self.portfolio.update_quantity(symbol, filled_qty * side_mul)
                     self.portfolio.update_price(symbol, abs(new_avg_price))
-                    logger.info(f"Updated position: {symbol} qty_delta={filled_qty * side.value:.2f} @ ${fill_price:.2f} (avg: ${abs(new_avg_price):.2f})")
+                    logger.info(f"Updated position: {symbol} qty_delta={filled_qty * side_mul:.2f} @ ${fill_price:.2f} (avg: ${abs(new_avg_price):.2f})")
 
                 # Update cash position
                 # BUY: cash decreases (side.value = 1, so -qty * price)
                 # SELL: cash increases (side.value = -1, so -qty * price * -1 = +qty * price)
-                cash_delta = -filled_qty * fill_price * side.value
+                cash_delta = -filled_qty * fill_price * side_mul
                 self.portfolio.update_quantity("cash", cash_delta)
                 logger.info(f"Cash updated: ${cash_delta:+.2f} (total: ${self.portfolio.get_position('cash')[0]['quantity']:.2f})")
             elif status == 'canceled':
@@ -149,8 +151,8 @@ class ExecutionEngine:
             else:
                 logger.warning(f"Order {order.order_id} status '{status}' - no portfolio update")
 
-        # Mark portfolio to market at end of backtest
-        self.mark_to_market()
+            # Mark portfolio to market at end of backtest
+            self.mark_to_market()
 
     def mark_to_market(self):
         """Update all positions to current market prices for accurate valuation."""
@@ -164,5 +166,5 @@ class ExecutionEngine:
             if symbol in self.current_prices:
                 current_price = self.current_prices[symbol]
                 old_price = pos['price']
-                self.portfolio.update_price(symbol, current_price)
+                # TODO: How to update stock price
                 logger.info(f"Marked {symbol} to market: ${old_price:.2f} -> ${current_price:.2f}")
