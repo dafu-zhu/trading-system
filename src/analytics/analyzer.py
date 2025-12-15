@@ -1,18 +1,16 @@
 """
-Backtest results analyzer.
+Simplified backtest results analyzer.
 
-Analyzes trades, positions, and performance to generate comprehensive reports.
+Analyzes trades and equity curve to generate performance reports.
 """
 import pandas as pd
-import numpy as np
-from typing import List, Dict, Optional, Tuple
-from datetime import datetime
+from typing import List, Dict
 from analytics.metrics import PerformanceMetrics, format_metrics
 
 
 class BacktestAnalyzer:
     """
-    Analyze backtest results including trades, equity curve, and positions.
+    Analyze backtest results using simplified metrics.
     """
 
     def __init__(self, risk_free_rate: float = 0.02):
@@ -25,322 +23,126 @@ class BacktestAnalyzer:
         self.metrics_calc = PerformanceMetrics(risk_free_rate=risk_free_rate)
         self.trades = []
         self.equity_curve = None
-        self.positions_history = []
 
     def add_trade(self, trade: Dict) -> None:
         """
         Add a completed trade to the analyzer.
 
-        Trade dict should contain:
-            - symbol: str
-            - entry_time: datetime
-            - exit_time: datetime
-            - entry_price: float
-            - exit_price: float
-            - quantity: float
-            - side: str ('BUY' or 'SELL')
-            - pnl: float
-            - return: float
+        Trade dict should contain at minimum:
+            - pnl: float (profit/loss)
+
+        Args:
+            trade: Trade dictionary
         """
         self.trades.append(trade)
 
     def set_equity_curve(self, equity_curve: pd.Series) -> None:
-        """Set the equity curve time series."""
-        self.equity_curve = equity_curve
+        """
+        Set the equity curve time series.
 
-    def set_positions_history(self, positions: List[Dict]) -> None:
-        """Set the positions history."""
-        self.positions_history = positions
+        Args:
+            equity_curve: Time series of portfolio values
+        """
+        self.equity_curve = equity_curve
 
     def analyze(self) -> Dict:
         """
-        Perform comprehensive analysis of backtest results.
+        Perform analysis of backtest results.
 
         Returns:
-            Dictionary containing all analysis results
+            Dictionary containing:
+            - metrics: Performance metrics (Sharpe, drawdown, win ratio, P/L ratio)
+            - num_trades: Number of trades
+            - equity_info: Basic equity curve statistics
         """
-        results = {}
+        if self.equity_curve is None or len(self.equity_curve) == 0:
+            return {
+                'error': 'No equity curve data available',
+                'metrics': {},
+                'num_trades': len(self.trades),
+            }
 
-        # Performance metrics
-        if self.equity_curve is not None:
-            metrics = self.metrics_calc.calculate_all(
-                self.equity_curve,
-                trades=self.trades
-            )
-            results['metrics'] = metrics
+        # Calculate metrics
+        metrics = self.metrics_calc.calculate_all(self.equity_curve, self.trades)
 
-        # Trade analysis
-        if self.trades:
-            results['trade_analysis'] = self._analyze_trades()
+        # Basic equity statistics
+        initial_value = self.equity_curve.iloc[0]
+        final_value = self.equity_curve.iloc[-1]
+        total_return = (final_value - initial_value) / initial_value
 
-        # Position analysis
-        if self.positions_history:
-            results['position_analysis'] = self._analyze_positions()
-
-        # Time-based analysis
-        if self.trades:
-            results['time_analysis'] = self._analyze_by_time()
+        results = {
+            'metrics': metrics,
+            'num_trades': len(self.trades),
+            'equity_info': {
+                'initial_value': initial_value,
+                'final_value': final_value,
+                'total_return': total_return,
+                'num_ticks': len(self.equity_curve),
+            }
+        }
 
         return results
 
-    def _analyze_trades(self) -> Dict:
-        """Analyze individual trades."""
-        if not self.trades:
-            return {}
-
-        df = pd.DataFrame(self.trades)
-
-        analysis = {
-            'total_trades': len(df),
-            'symbols_traded': df['symbol'].nunique() if 'symbol' in df else 0,
-        }
-
-        # PnL analysis
-        if 'pnl' in df:
-            analysis.update({
-                'total_pnl': df['pnl'].sum(),
-                'avg_pnl_per_trade': df['pnl'].mean(),
-                'median_pnl': df['pnl'].median(),
-                'pnl_std': df['pnl'].std(),
-            })
-
-            # Win/loss analysis
-            wins = df[df['pnl'] > 0]
-            losses = df[df['pnl'] < 0]
-            breakeven = df[df['pnl'] == 0]
-
-            analysis.update({
-                'winning_trades': len(wins),
-                'losing_trades': len(losses),
-                'breakeven_trades': len(breakeven),
-                'win_rate': len(wins) / len(df) if len(df) > 0 else 0,
-                'avg_win': wins['pnl'].mean() if len(wins) > 0 else 0,
-                'avg_loss': losses['pnl'].mean() if len(losses) > 0 else 0,
-                'largest_win': df['pnl'].max(),
-                'largest_loss': df['pnl'].min(),
-                'best_trade': df.loc[df['pnl'].idxmax()].to_dict() if len(df) > 0 else {},
-                'worst_trade': df.loc[df['pnl'].idxmin()].to_dict() if len(df) > 0 else {},
-            })
-
-            # Profit factor
-            gross_profit = wins['pnl'].sum() if len(wins) > 0 else 0
-            gross_loss = abs(losses['pnl'].sum()) if len(losses) > 0 else 0
-            analysis['profit_factor'] = gross_profit / gross_loss if gross_loss > 0 else 0
-
-        # Trade duration analysis
-        if 'entry_time' in df and 'exit_time' in df:
-            df['duration'] = pd.to_datetime(df['exit_time']) - pd.to_datetime(df['entry_time'])
-            analysis.update({
-                'avg_trade_duration': df['duration'].mean(),
-                'median_trade_duration': df['duration'].median(),
-                'min_duration': df['duration'].min(),
-                'max_duration': df['duration'].max(),
-            })
-
-        # Return analysis
-        if 'return' in df:
-            analysis.update({
-                'avg_return': df['return'].mean(),
-                'median_return': df['return'].median(),
-                'return_std': df['return'].std(),
-            })
-
-        # Per-symbol analysis
-        if 'symbol' in df and 'pnl' in df:
-            by_symbol = df.groupby('symbol')['pnl'].agg(['count', 'sum', 'mean'])
-            by_symbol.columns = ['trades', 'total_pnl', 'avg_pnl']
-            analysis['by_symbol'] = by_symbol.to_dict('index')
-
-        return analysis
-
-    def _analyze_positions(self) -> Dict:
-        """Analyze position history."""
-        if not self.positions_history:
-            return {}
-
-        df = pd.DataFrame(self.positions_history)
-
-        analysis = {
-            'total_positions': len(df),
-        }
-
-        if 'quantity' in df:
-            analysis.update({
-                'avg_position_size': df['quantity'].mean(),
-                'max_position_size': df['quantity'].max(),
-                'min_position_size': df['quantity'].min(),
-            })
-
-        if 'value' in df:
-            analysis.update({
-                'avg_position_value': df['value'].mean(),
-                'max_position_value': df['value'].max(),
-                'total_position_value': df['value'].sum(),
-            })
-
-        return analysis
-
-    def _analyze_by_time(self) -> Dict:
-        """Analyze trades by time periods."""
-        if not self.trades:
-            return {}
-
-        df = pd.DataFrame(self.trades)
-
-        if 'exit_time' not in df or 'pnl' not in df:
-            return {}
-
-        df['exit_time'] = pd.to_datetime(df['exit_time'])
-        df = df.set_index('exit_time')
-
-        analysis = {}
-
-        # Monthly performance
-        monthly = df['pnl'].resample('ME').agg(['sum', 'count', 'mean'])
-        monthly.columns = ['pnl', 'trades', 'avg_pnl']
-        analysis['monthly'] = monthly.to_dict('index')
-
-        # Weekly performance
-        weekly = df['pnl'].resample('W').sum()
-        analysis['weekly_avg_pnl'] = weekly.mean()
-        analysis['best_week'] = weekly.max()
-        analysis['worst_week'] = weekly.min()
-
-        # Day of week analysis
-        df['day_of_week'] = df.index.day_name()
-        by_day = df.groupby('day_of_week')['pnl'].agg(['count', 'sum', 'mean'])
-        by_day.columns = ['trades', 'total_pnl', 'avg_pnl']
-        analysis['by_day_of_week'] = by_day.to_dict('index')
-
-        return analysis
-
-    def get_trade_summary(self) -> pd.DataFrame:
-        """Get summary DataFrame of all trades."""
-        if not self.trades:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(self.trades)
-
-        # Sort by exit time if available
-        if 'exit_time' in df:
-            df = df.sort_values('exit_time')
-
-        return df
-
-    def get_winning_trades(self) -> pd.DataFrame:
-        """Get DataFrame of winning trades."""
-        df = self.get_trade_summary()
-        if df.empty or 'pnl' not in df:
-            return pd.DataFrame()
-        return df[df['pnl'] > 0]
-
-    def get_losing_trades(self) -> pd.DataFrame:
-        """Get DataFrame of losing trades."""
-        df = self.get_trade_summary()
-        if df.empty or 'pnl' not in df:
-            return pd.DataFrame()
-        return df[df['pnl'] < 0]
-
     def generate_report(self) -> str:
         """
-        Generate comprehensive text report of backtest results.
+        Generate text report of backtest results.
 
         Returns:
             Formatted string report
         """
         analysis = self.analyze()
-        report = []
 
+        if 'error' in analysis:
+            return f"Error: {analysis['error']}"
+
+        report = []
         report.append("=" * 70)
         report.append("BACKTEST ANALYSIS REPORT")
         report.append("=" * 70)
+
+        # Equity info
+        equity_info = analysis.get('equity_info', {})
+        report.append("\nEquity Curve Summary:")
+        report.append(f"  Initial Value:  ${equity_info.get('initial_value', 0):>12,.2f}")
+        report.append(f"  Final Value:    ${equity_info.get('final_value', 0):>12,.2f}")
+        report.append(f"  Total Return:   {equity_info.get('total_return', 0):>12.2%}")
+        report.append(f"  Number of Ticks: {equity_info.get('num_ticks', 0):>12,}")
+
+        # Trade info
+        report.append(f"\nTotal Trades:     {analysis.get('num_trades', 0):>12,}")
 
         # Performance metrics
         if 'metrics' in analysis:
             report.append("\n" + format_metrics(analysis['metrics']))
 
-        # Trade analysis
-        if 'trade_analysis' in analysis:
-            ta = analysis['trade_analysis']
-            report.append("\n" + "=" * 70)
-            report.append("TRADE ANALYSIS")
-            report.append("=" * 70)
-            report.append(f"\nTotal Trades:          {ta.get('total_trades', 0):>10.0f}")
-            report.append(f"Symbols Traded:        {ta.get('symbols_traded', 0):>10.0f}")
-
-            if 'total_pnl' in ta:
-                report.append(f"\nTotal P&L:             ${ta.get('total_pnl', 0):>10.2f}")
-                report.append(f"Avg P&L per Trade:     ${ta.get('avg_pnl_per_trade', 0):>10.2f}")
-                report.append(f"Median P&L:            ${ta.get('median_pnl', 0):>10.2f}")
-
-            if 'avg_trade_duration' in ta:
-                report.append(f"\nAvg Trade Duration:    {ta['avg_trade_duration']}")
-                report.append(f"Median Duration:       {ta['median_trade_duration']}")
-
-            if 'by_symbol' in ta:
-                report.append("\nPerformance by Symbol:")
-                for symbol, stats in ta['by_symbol'].items():
-                    report.append(f"  {symbol:>6}: {stats['trades']:3.0f} trades, "
-                                f"${stats['total_pnl']:>10.2f} total, "
-                                f"${stats['avg_pnl']:>8.2f} avg")
-
-        # Time analysis
-        if 'time_analysis' in analysis:
-            ta = analysis['time_analysis']
-            if 'by_day_of_week' in ta:
-                report.append("\n" + "=" * 70)
-                report.append("PERFORMANCE BY DAY OF WEEK")
-                report.append("=" * 70)
-                for day, stats in ta['by_day_of_week'].items():
-                    report.append(f"  {day:>9}: {stats['trades']:3.0f} trades, "
-                                f"${stats['total_pnl']:>10.2f} total, "
-                                f"${stats['avg_pnl']:>8.2f} avg")
-
-        report.append("\n" + "=" * 70)
+        report.append("=" * 70)
         return "\n".join(report)
 
-    def export_to_csv(self, filepath: str) -> None:
-        """Export trade summary to CSV file."""
-        df = self.get_trade_summary()
-        if not df.empty:
-            df.to_csv(filepath, index=False)
+    def get_trades_list(self) -> List[Dict]:
+        """
+        Get list of all trades.
 
-    def export_metrics_to_dict(self) -> Dict:
-        """Export all analysis as dictionary for JSON serialization."""
-        analysis = self.analyze()
+        Returns:
+            List of trade dictionaries
+        """
+        return self.trades
 
-        # Convert non-serializable types
-        result = {}
-        for key, value in analysis.items():
-            if isinstance(value, pd.DataFrame):
-                result[key] = value.to_dict('records')
-            elif isinstance(value, dict):
-                result[key] = self._make_json_serializable(value)
-            else:
-                result[key] = value
+    def get_trades_df(self) -> pd.DataFrame:
+        """
+        Get trades as a DataFrame.
 
-        return result
+        Returns:
+            DataFrame of all trades
+        """
+        if not self.trades:
+            return pd.DataFrame()
 
-    def _make_json_serializable(self, obj):
-        """Convert objects to JSON-serializable format."""
-        if isinstance(obj, dict):
-            return {k: self._make_json_serializable(v) for k, v in obj.items()}
-        elif isinstance(obj, (list, tuple)):
-            return [self._make_json_serializable(item) for item in obj]
-        elif isinstance(obj, (np.integer, np.floating)):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        elif isinstance(obj, pd.Timedelta):
-            return str(obj)
-        elif isinstance(obj, datetime):
-            return obj.isoformat()
-        else:
-            return obj
+        return pd.DataFrame(self.trades)
 
 
 if __name__ == '__main__':
-    # Example usage
+    import numpy as np
+
     print("=" * 70)
     print("Backtest Analyzer Example")
     print("=" * 70)
@@ -348,57 +150,34 @@ if __name__ == '__main__':
     # Create analyzer
     analyzer = BacktestAnalyzer(risk_free_rate=0.02)
 
+    # Generate sample equity curve
+    dates = pd.date_range('2023-01-01', periods=252, freq='D')
+    np.random.seed(42)
+    returns = np.random.normal(0.0008, 0.012, 252)
+    equity = 100000 * (1 + pd.Series(returns)).cumprod()
+    equity_curve = pd.Series(equity.values, index=pd.DatetimeIndex(dates))
+    analyzer.set_equity_curve(equity_curve)
+
     # Add sample trades
     trades = [
-        {
-            'symbol': 'AAPL',
-            'entry_time': pd.Timestamp('2023-01-10'),
-            'exit_time': pd.Timestamp('2023-01-15'),
-            'entry_price': 150.0,
-            'exit_price': 155.0,
-            'quantity': 100,
-            'side': 'BUY',
-            'pnl': 500.0,
-            'return': 0.033
-        },
-        {
-            'symbol': 'AAPL',
-            'entry_time': pd.Timestamp('2023-01-20'),
-            'exit_time': pd.Timestamp('2023-01-25'),
-            'entry_price': 155.0,
-            'exit_price': 153.0,
-            'quantity': 100,
-            'side': 'BUY',
-            'pnl': -200.0,
-            'return': -0.013
-        },
-        {
-            'symbol': 'MSFT',
-            'entry_time': pd.Timestamp('2023-02-01'),
-            'exit_time': pd.Timestamp('2023-02-10'),
-            'entry_price': 250.0,
-            'exit_price': 260.0,
-            'quantity': 50,
-            'side': 'BUY',
-            'pnl': 500.0,
-            'return': 0.04
-        },
+        {'pnl': 500},
+        {'pnl': -200},
+        {'pnl': 300},
+        {'pnl': -150},
+        {'pnl': 700},
+        {'pnl': -100},
+        {'pnl': 400},
+        {'pnl': -250},
+        {'pnl': 600},
+        {'pnl': -180},
     ]
 
     for trade in trades:
         analyzer.add_trade(trade)
 
-    # Generate sample equity curve
-    dates = pd.date_range('2023-01-01', periods=60, freq='D')
-    np.random.seed(42)
-    returns = np.random.normal(0.001, 0.015, 60)
-    equity = 100000 * (1 + pd.Series(returns)).cumprod()
-    equity_curve = pd.Series(equity.values, index=dates)
-    analyzer.set_equity_curve(equity_curve)
-
     # Generate report
     print(analyzer.generate_report())
 
-    # Show trade summary
-    print("\nTrade Summary:")
-    print(analyzer.get_trade_summary()[['symbol', 'entry_price', 'exit_price', 'pnl', 'return']])
+    # Show trades DataFrame
+    print("\nTrades DataFrame:")
+    print(analyzer.get_trades_df())

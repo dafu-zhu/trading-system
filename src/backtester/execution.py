@@ -11,6 +11,7 @@ from orders.order_book import OrderBook
 from portfolio import Portfolio, Position
 from backtester.position_sizer import PositionSizer, PercentSizer
 from backtester.trade_tracker import TradeTracker
+from backtester.equity_tracker import EquityTracker
 
 logger = logging.getLogger("src.backtester")
 
@@ -37,6 +38,8 @@ class ExecutionEngine:
         self.current_prices = {}
         # Track completed trades for analysis
         self.trade_tracker = TradeTracker()
+        # Track portfolio value at each tick
+        self.equity_tracker = EquityTracker()
         # Default to 10% equity sizing if no sizer provided
         self.position_sizer = position_sizer or PercentSizer(
             equity_percent=0.10
@@ -51,6 +54,9 @@ class ExecutionEngine:
         # market data point iterator
         data_points = self.gateway.stream_data()
 
+        # Track if this is the first tick
+        first_tick = True
+
         for tick in data_points:
             # generate signal
             signal: Dict = self.strategy.generate_signals(tick)[0]
@@ -64,8 +70,18 @@ class ExecutionEngine:
             # Update current market price for this symbol
             self.current_prices[symbol] = price
 
+            # Record initial equity on first tick (before any trading)
+            if first_tick:
+                initial_value = self.portfolio.get_total_value()
+                self.equity_tracker.record_tick(tick.timestamp, initial_value)
+                first_tick = False
+
             # Skip HOLD signals
             if side == OrderSide.HOLD:
+                # Still record equity even on HOLD signals
+                self.mark_to_market()
+                portfolio_value = self.portfolio.get_total_value()
+                self.equity_tracker.record_tick(tick.timestamp, portfolio_value)
                 continue
 
             # Calculate position size using position sizer
@@ -112,8 +128,14 @@ class ExecutionEngine:
                     order_id=order.order_id
                 )
 
-                # Use actual fill quantity and price from report
-                # Update portfolio: add new position or update existing
+                # IMPORTANT: Update cash FIRST to avoid double-counting
+                # BUY: cash decreases (side.value = 1, so -qty * price)
+                # SELL: cash increases (side.value = -1, so -qty * price * -1 = +qty * price)
+                cash_delta = -filled_qty * fill_price * side_mul
+                self.portfolio.update_quantity("cash", cash_delta)
+                logger.info(f"Cash updated: ${cash_delta:+.2f} (total: ${self.portfolio.get_position('cash')[0]['quantity']:.2f})")
+
+                # Now update portfolio: add new position or update existing
                 try:
                     position = Position(symbol, filled_qty, fill_price)
                     self.portfolio.add_position(position, self.portfolio.root)
@@ -138,21 +160,16 @@ class ExecutionEngine:
                     self.portfolio.update_price(symbol, abs(new_avg_price))
                     logger.info(f"Updated position: {symbol} qty_delta={filled_qty * side_mul:.2f} @ ${fill_price:.2f} (avg: ${abs(new_avg_price):.2f})")
 
-                # Update cash position
-                # BUY: cash decreases (side.value = 1, so -qty * price)
-                # SELL: cash increases (side.value = -1, so -qty * price * -1 = +qty * price)
-                cash_delta = -filled_qty * fill_price * side_mul
-                self.portfolio.update_quantity("cash", cash_delta)
-                logger.info(f"Cash updated: ${cash_delta:+.2f} (total: ${self.portfolio.get_position('cash')[0]['quantity']:.2f})")
+                # Record equity after order execution
+                self.mark_to_market()
+                portfolio_value = self.portfolio.get_total_value()
+                self.equity_tracker.record_tick(tick.timestamp, portfolio_value)
             elif status == 'canceled':
                 logger.info(f"Order {order.order_id} canceled - no portfolio update")
             elif status == 'rejected':
                 logger.warning(f"Order {order.order_id} rejected - no portfolio update")
             else:
                 logger.warning(f"Order {order.order_id} status '{status}' - no portfolio update")
-
-            # Mark portfolio to market at end of backtest
-            self.mark_to_market()
 
     def mark_to_market(self):
         """Update all positions to current market prices for accurate valuation."""
@@ -166,5 +183,6 @@ class ExecutionEngine:
             if symbol in self.current_prices:
                 current_price = self.current_prices[symbol]
                 old_price = pos['price']
-                # TODO: How to update stock price
-                logger.info(f"Marked {symbol} to market: ${old_price:.2f} -> ${current_price:.2f}")
+                # Update position price to current market price
+                self.portfolio.update_price(symbol, current_price)
+                logger.debug(f"Marked {symbol} to market: ${old_price:.2f} -> ${current_price:.2f}")

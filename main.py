@@ -9,20 +9,18 @@ Runs a complete backtest with:
 """
 import os
 import sys
-import pandas as pd
 import logging
 from dotenv import load_dotenv
 from pathlib import Path
 
+from backtester.position_sizer import PercentSizer
 from strategy.macd_strategy import MACDStrategy
 from gateway.historical_gateway import HistoricalGateway
 from orders.order_manager import OrderManager
 from orders.order_book import OrderBook
 from orders.matching_engine import RandomMatchingEngine
-from portfolio import Portfolio
 from backtester import (
     ExecutionEngine,
-    PositionSizer,
     BacktestRecorder,
     TransactionCostCalculator,
     PercentageCommission,
@@ -30,8 +28,6 @@ from backtester import (
 )
 from analytics import (
     PerformanceMetrics,
-    BacktestAnalyzer,
-    BacktestVisualizer,
     MarkdownReportGenerator
 )
 
@@ -113,22 +109,17 @@ def run_backtest(
     matching_engine = RandomMatchingEngine()
 
     # Position Sizer
-    position_sizer = PositionSizer(
-        sizing_method=position_sizing_method,
-        equity_percent=equity_percent,
-        risk_per_trade=risk_per_trade,
-        fixed_quantity=100
-    )
+    position_sizer = PercentSizer(equity_percent=equity_percent)
     logger.info(f"  Position Sizer: {position_sizing_method}")
 
     # Transaction Costs
     commission_model = PercentageCommission(commission_pct=commission_pct)
     slippage_model = PercentageSlippage(slippage_pct=slippage_pct)
-    cost_calculator = TransactionCostCalculator(commission_model, slippage_model)
+    # cost_calculator = TransactionCostCalculator(commission_model, slippage_model)
     logger.info(f"  Commission: {commission_pct:.3%}, Slippage: {slippage_pct:.3%}")
 
     # Recorder
-    recorder = BacktestRecorder()
+    # recorder = BacktestRecorder()
 
     # 4. Create Execution Engine
     logger.info("[4/7] Creating execution engine...")
@@ -155,13 +146,13 @@ def run_backtest(
     # 6. Collect Results
     logger.info("[6/7] Collecting results...")
 
-    # Get equity curve from portfolio history
-    # For now, create a simple equity curve from final value
-    # TODO: Track equity at each step in ExecutionEngine
-    final_value = engine.portfolio.get_total_value()
+    # Get equity curve from equity tracker
+    equity_curve = engine.equity_tracker.get_equity_series()
+    final_value = engine.equity_tracker.get_current_equity()
     logger.info(f"  Initial Capital: ${initial_capital:,.2f}")
     logger.info(f"  Final Value: ${final_value:,.2f}")
     logger.info(f"  Total Return: {(final_value/initial_capital - 1):.2%}")
+    logger.info(f"  Equity tracked at {engine.equity_tracker.get_tick_count()} ticks")
 
     # Get positions
     positions = engine.portfolio.get_positions()
@@ -169,10 +160,6 @@ def run_backtest(
     for pos in positions:
         if pos['symbol'] != 'cash' and pos['quantity'] != 0:
             logger.info(f"    {pos['symbol']}: {pos['quantity']} @ ${pos['price']:.2f}")
-
-    # Create a simple equity curve for now
-    # In production, ExecutionEngine should track this at each step
-    equity_curve = pd.Series([initial_capital, final_value], index=[df.index[0], df.index[-1]])
 
     # Get trade reports from engine
     trade_reports = engine.reports
@@ -222,41 +209,16 @@ def analyze_results(results: dict):
     equity_curve = results['equity_curve']
     trades = results['trades']
 
-    # Calculate metrics
+    # Calculate metrics using simplified analytics
     logger.info("\nCalculating performance metrics...")
     metrics_calc = PerformanceMetrics(risk_free_rate=0.02)
 
-    # For now, with limited data, calculate basic metrics
-    total_return = (results['final_value'] / results['initial_capital']) - 1
+    # Calculate simplified metrics
+    metrics = metrics_calc.calculate_all(equity_curve, trades)
 
-    metrics = {
-        'total_return': total_return,
-        'cagr': 0.0,  # Need full equity curve
-        'annualized_return': 0.0,
-        'volatility': 0.0,
-        'sharpe_ratio': 0.0,
-        'sortino_ratio': 0.0,
-        'max_drawdown': 0.0,
-        'max_drawdown_duration': 0,
-        'calmar_ratio': 0.0,
-        'best_day': 0.0,
-        'worst_day': 0.0,
-        'positive_days': 0,
-        'negative_days': 0,
-        'win_rate_daily': 0.0,
-        'total_trades': len(trades),
-        'winning_trades': len([t for t in trades if t.get('pnl', 0) > 0]),
-        'losing_trades': len([t for t in trades if t.get('pnl', 0) < 0]),
-        'win_rate': 0.0,
-        'avg_win': 0.0,
-        'avg_loss': 0.0,
-        'profit_factor': 0.0,
-        'largest_win': 0.0,
-        'largest_loss': 0.0,
-        'avg_trade_pnl': 0.0,
-        'gross_profit': 0.0,
-        'gross_loss': 0.0,
-    }
+    # Add total return for display
+    total_return = (results['final_value'] / results['initial_capital']) - 1
+    metrics['total_return'] = total_return
 
     # Print summary
     logger.info("\n" + "=" * 70)
@@ -315,9 +277,7 @@ This backtest ran the MACD crossover strategy on {results['symbol']}.
                 strategy_name=results['strategy_name'],
                 equity_curve=equity_curve,
                 trades=trades,
-                metrics=metrics,
-                config=results['config'],
-                notes=notes
+                config=results['config']
             )
             logger.info(f"✓ Report saved to: {report_path}")
         except Exception as e:
