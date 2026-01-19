@@ -4,13 +4,13 @@ MACD trading strategy using DataGateway.
 Generates BUY/SELL/HOLD signals based on MACD crossovers.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import pandas as pd
 
-from models import Strategy, MarketDataPoint, DataGateway, Timeframe, Bar
 from data_loader.features.calculator import FeatureCalculator, FeatureParams
+from models import DataGateway, MarketDataPoint, Strategy, Timeframe
 
 
 class MACDStrategy(Strategy):
@@ -72,8 +72,6 @@ class MACDStrategy(Strategy):
         if end is None:
             end = datetime.now()
         if start is None:
-            # Default to enough history for MACD calculation
-            from datetime import timedelta
             start = end - timedelta(days=365)
 
         # Fetch bars from gateway
@@ -100,27 +98,24 @@ class MACDStrategy(Strategy):
         :param tick: Market data point with timestamp, symbol, and price
         :return: List with single signal dict
         """
-        symbol = tick.symbol
+        if tick.symbol not in self._data_cache:
+            self.get_data(tick.symbol)
 
-        # Load data if not cached
-        if symbol not in self._data_cache:
-            self.get_data(symbol)
-
-        df = self._data_cache.get(symbol)
+        df = self._data_cache.get(tick.symbol)
         if df is None or df.empty:
             return [self._make_signal('HOLD', tick)]
 
-        # Find the row matching the tick's timestamp
-        try:
-            row = df.loc[tick.timestamp]
-            return [self._make_signal(str(row['signal']), tick)]
-        except KeyError:
-            # Timestamp not found - find closest prior timestamp
-            prior = df[df.index <= tick.timestamp]
-            if not prior.empty:
-                row = prior.iloc[-1]
-                return [self._make_signal(str(row['signal']), tick)]
+        # Find exact timestamp match or closest prior
+        if tick.timestamp in df.index:
+            signal = str(df.loc[tick.timestamp, 'signal'])
+            return [self._make_signal(signal, tick)]
+
+        prior = df[df.index <= tick.timestamp]
+        if prior.empty:
             return [self._make_signal('HOLD', tick)]
+
+        signal = str(prior.iloc[-1]['signal'])
+        return [self._make_signal(signal, tick)]
 
     def generate_signals_batch(
         self,

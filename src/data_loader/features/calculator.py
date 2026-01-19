@@ -4,10 +4,11 @@ Feature calculator for bar data.
 Calculates technical indicators from Bar objects without CSV dependencies.
 """
 
-import pandas as pd
-import numpy as np
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
+
+import numpy as np
+import pandas as pd
 
 from models import Bar
 
@@ -119,22 +120,25 @@ class FeatureCalculator:
         if df.empty:
             return df
 
+        feature_handlers = {
+            'macd': lambda: cls.add_macd(df, params.macd_fast, params.macd_slow, params.macd_signal),
+            'rsi': lambda: cls.add_rsi(df, params.rsi_window),
+            'ma': lambda: cls.add_moving_averages(df, params.ma_windows),
+            'moving_average': lambda: cls.add_moving_averages(df, params.ma_windows),
+            'moving_averages': lambda: cls.add_moving_averages(df, params.ma_windows),
+            'bollinger': lambda: cls.add_bollinger_bands(df, params.bb_window, params.bb_std),
+            'bb': lambda: cls.add_bollinger_bands(df, params.bb_window, params.bb_std),
+            'bollinger_bands': lambda: cls.add_bollinger_bands(df, params.bb_window, params.bb_std),
+            'atr': lambda: cls.add_atr(df, params.atr_window),
+            'returns': lambda: cls.add_returns(df),
+        }
+
         for feature in features:
             feature_lower = feature.lower()
-            if feature_lower == 'macd':
-                cls.add_macd(df, params.macd_fast, params.macd_slow, params.macd_signal)
-            elif feature_lower == 'rsi':
-                cls.add_rsi(df, params.rsi_window)
-            elif feature_lower in ('ma', 'moving_average', 'moving_averages'):
-                cls.add_moving_averages(df, params.ma_windows)
-            elif feature_lower in ('bollinger', 'bb', 'bollinger_bands'):
-                cls.add_bollinger_bands(df, params.bb_window, params.bb_std)
-            elif feature_lower == 'atr':
-                cls.add_atr(df, params.atr_window)
-            elif feature_lower == 'returns':
-                cls.add_returns(df)
-            else:
+            handler = feature_handlers.get(feature_lower)
+            if handler is None:
                 raise ValueError(f"Unknown feature: {feature}")
+            handler()
 
         return df
 
