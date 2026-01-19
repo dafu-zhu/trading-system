@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from gateway.alpaca_trading_gateway import AlpacaTradingGateway
-from models import OrderSide, OrderType, TimeInForce
+from models import OrderSide, OrderType, TimeInForce, AccountInfo, PositionInfo
 
 # Configure logging
 logging.basicConfig(
@@ -79,7 +79,6 @@ class LocalSimulator:
     def __init__(self, initial_cash: float = 100_000.0):
         self.cash = initial_cash
         self.positions: dict[str, dict] = {}
-        self.orders: list[dict] = []
         self._order_id = 0
 
     def connect(self) -> bool:
@@ -92,37 +91,37 @@ class LocalSimulator:
     def is_connected(self) -> bool:
         return True
 
-    def get_account(self) -> dict:
+    def get_account(self) -> AccountInfo:
         portfolio_value = sum(
             p["quantity"] * p["current_price"] for p in self.positions.values()
         )
-        return {
-            "account_id": "LOCAL_SIM",
-            "cash": self.cash,
-            "portfolio_value": portfolio_value,
-            "buying_power": self.cash,
-            "equity": self.cash + portfolio_value,
-            "currency": "USD",
-            "is_paper": True,
-        }
+        return AccountInfo(
+            account_id="LOCAL_SIM",
+            cash=self.cash,
+            portfolio_value=portfolio_value,
+            buying_power=self.cash,
+            equity=self.cash + portfolio_value,
+            currency="USD",
+            is_paper=True,
+        )
 
-    def get_positions(self) -> list[dict]:
+    def get_positions(self) -> list[PositionInfo]:
         return [
-            {
-                "symbol": symbol,
-                "quantity": pos["quantity"],
-                "avg_entry_price": pos["avg_entry_price"],
-                "market_value": pos["quantity"] * pos["current_price"],
-                "unrealized_pl": pos["quantity"] * (pos["current_price"] - pos["avg_entry_price"]),
-                "side": "long" if pos["quantity"] > 0 else "short",
-            }
+            PositionInfo(
+                symbol=symbol,
+                quantity=pos["quantity"],
+                avg_entry_price=pos["avg_entry_price"],
+                market_value=pos["quantity"] * pos["current_price"],
+                unrealized_pl=pos["quantity"] * (pos["current_price"] - pos["avg_entry_price"]),
+                side="long" if pos["quantity"] > 0 else "short",
+            )
             for symbol, pos in self.positions.items()
         ]
 
     def submit_order(
         self,
         symbol: str,
-        side: str,
+        side: OrderSide,
         quantity: float,
         price: float,
     ) -> dict:
@@ -130,7 +129,7 @@ class LocalSimulator:
         self._order_id += 1
         order_id = f"LOCAL_{self._order_id}"
 
-        if side == "buy":
+        if side == OrderSide.BUY:
             cost = quantity * price
             if cost > self.cash:
                 return {"order_id": order_id, "status": "rejected", "message": "Insufficient funds"}
@@ -156,16 +155,13 @@ class LocalSimulator:
             if self.positions[symbol]["quantity"] == 0:
                 del self.positions[symbol]
 
-        logger.info("LOCAL SIM: %s %s %s @ $%.2f", side.upper(), quantity, symbol, price)
+        logger.info("LOCAL SIM: %s %s %s @ $%.2f", side.value.upper(), quantity, symbol, price)
         return {"order_id": order_id, "status": "filled", "filled_price": price}
 
 
 def run_paper_trading(simulate: bool = False) -> None:
     """Run interactive paper trading session."""
-    if simulate:
-        gateway = LocalSimulator()
-    else:
-        gateway = AlpacaTradingGateway()
+    gateway = LocalSimulator() if simulate else AlpacaTradingGateway()
 
     if not gateway.connect():
         logger.error("Failed to connect")
@@ -178,7 +174,7 @@ def run_paper_trading(simulate: bool = False) -> None:
             print("\n" + "=" * 60)
             print("LOCAL SIMULATOR - No real API calls")
             print("=" * 60)
-            print(f"  Initial Cash: ${account['cash']:,.2f}")
+            print(f"  Initial Cash: ${account.cash:,.2f}")
         else:
             show_account_info(gateway)
             show_positions(gateway)
@@ -206,7 +202,7 @@ def run_paper_trading(simulate: bool = False) -> None:
             elif cmd == "info":
                 if simulate:
                     account = gateway.get_account()
-                    print(f"\nCash: ${account['cash']:,.2f}, Equity: ${account['equity']:,.2f}\n")
+                    print(f"\nCash: ${account.cash:,.2f}, Equity: ${account.equity:,.2f}\n")
                 else:
                     show_account_info(gateway)
             elif cmd == "pos":
@@ -216,7 +212,7 @@ def run_paper_trading(simulate: bool = False) -> None:
                         print("\nNo positions\n")
                     else:
                         for p in positions:
-                            print(f"  {p['symbol']}: {p['quantity']} shares, P/L: ${p['unrealized_pl']:.2f}")
+                            print(f"  {p.symbol}: {p.quantity} shares, P/L: ${p.unrealized_pl:.2f}")
                         print()
                 else:
                     show_positions(gateway)
@@ -237,7 +233,7 @@ def run_paper_trading(simulate: bool = False) -> None:
 
                 if simulate:
                     # For simulation, use a fixed price (would need real data feed)
-                    result = gateway.submit_order(symbol, action, qty, 100.0)
+                    result = gateway.submit_order(symbol, side, qty, 100.0)
                     print(f"Order {result['status']}: {result.get('message', '')}")
                 else:
                     result = gateway.submit_order(

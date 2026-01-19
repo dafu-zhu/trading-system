@@ -20,6 +20,7 @@ from alpaca.trading.enums import (
     OrderSide as AlpacaOrderSide,
     TimeInForce as AlpacaTimeInForce,
     OrderStatus as AlpacaOrderStatus,
+    OrderType as AlpacaOrderType,
 )
 from alpaca.common.exceptions import APIError
 
@@ -164,14 +165,13 @@ class AlpacaTradingGateway(TradingGateway):
             filled_avg_price=float(order.filled_avg_price) if order.filled_avg_price else None,
         )
 
-    def _map_alpaca_order_type(self, order_type) -> OrderType:
+    def _map_alpaca_order_type(self, order_type: AlpacaOrderType) -> OrderType:
         """Map Alpaca order type to internal OrderType."""
-        from alpaca.trading.enums import OrderType as AlpacaOT
         mapping = {
-            AlpacaOT.MARKET: OrderType.MARKET,
-            AlpacaOT.LIMIT: OrderType.LIMIT,
-            AlpacaOT.STOP: OrderType.STOP,
-            AlpacaOT.STOP_LIMIT: OrderType.STOP_LIMIT,
+            AlpacaOrderType.MARKET: OrderType.MARKET,
+            AlpacaOrderType.LIMIT: OrderType.LIMIT,
+            AlpacaOrderType.STOP: OrderType.STOP,
+            AlpacaOrderType.STOP_LIMIT: OrderType.STOP_LIMIT,
         }
         return mapping.get(order_type, OrderType.MARKET)
 
