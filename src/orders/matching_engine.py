@@ -1,33 +1,59 @@
 """
-MatchingEngine: Matches strategy orders against market order book.
-Handles market and limit orders with realistic execution.
+MatchingEngine: Matches strategy orders against market data.
+Handles market and limit orders with deterministic execution.
 """
-import random
+
 import logging
-from typing import Dict, Optional
-from models import MatchingEngine
+from typing import Optional
+
+from models import Bar, MatchingEngine
 from orders.order import Order, OrderState
 from orders.order_book import OrderBook
 
 logger = logging.getLogger("src.order")
 
 
-class RandomMatchingEngine(MatchingEngine):
-    """Simulates order matching with random outcomes."""
+class DeterministicMatchingEngine(MatchingEngine):
+    """
+    Deterministic matching engine for backtesting.
 
-    def __init__(self, fill_prob: float = 0.7, partial_fill_prob: float = 0.2):
-        """
-        Initialize the matching engine.
+    Fills orders based on bar data with reproducible results.
+    Uses close price for market orders and checks if limit price
+    was hit during the bar for limit orders.
+    """
 
-        :param fill_prob: prob of fully fill (0.0 - 1.0)
-        :param partial_fill_prob: prob of partial fill (0.0 - 1.0)
+    def __init__(
+        self,
+        fill_at: str = "close",
+        max_volume_pct: float = 0.1,
+        slippage_bps: float = 0.0,
+    ):
         """
-        self.fill_prob = fill_prob
-        self.partial_fill_prob = partial_fill_prob
+        Initialize deterministic matching engine.
 
-    def match(self, order: Order, order_book: OrderBook) -> Dict:
+        :param fill_at: Price to fill at ("open", "close", "vwap")
+        :param max_volume_pct: Maximum fill as percentage of bar volume (0.1 = 10%)
+        :param slippage_bps: Slippage in basis points (10 = 0.1%)
         """
-        Randomly determines if order is filled, partially filled, or canceled.
+        self.fill_at = fill_at
+        self.max_volume_pct = max_volume_pct
+        self.slippage_bps = slippage_bps
+        self._current_bar: Optional[Bar] = None
+
+    def set_current_bar(self, bar: Bar) -> None:
+        """Set the current bar for matching context."""
+        self._current_bar = bar
+
+    def match(self, order: Order, order_book: OrderBook) -> dict:
+        """
+        Match order against current bar data.
+
+        For market orders: fill at specified price (close/open/vwap)
+        For limit orders: check if limit price was within bar range
+
+        :param order: Order to match
+        :param order_book: Order book (not used in bar-based matching)
+        :return: Execution report dictionary
         """
         if order.state != OrderState.ACKED:
             logger.warning(f"Cannot match order {order.order_id} in state {order.state}")
@@ -39,46 +65,105 @@ class RandomMatchingEngine(MatchingEngine):
                 'message': f'Order not in ACKED state: {order.state}'
             }
 
-        # Randomly determine outcome
-        outcome = random.random()
-
-        if outcome < self.fill_prob:
-            # Fully fill
-            filled_qty = order.fill(order.remaining_qty)
-            logger.info(f"Order {order.order_id} fully filled: {filled_qty} @ ${order.price:.2f}")
+        if self._current_bar is None:
+            logger.warning(f"No bar data for matching order {order.order_id}")
             return {
                 'order_id': order.order_id,
-                'status': 'filled',
-                'filled_qty': filled_qty,
-                'remaining_qty': 0.0,
-                'fill_price': order.price,
-                'message': 'Order fully filled'
-            }
-
-        elif outcome < self.fill_prob + self.partial_fill_prob:
-            # Partial fill (fill 30-70% of remaining quantity)
-            fill_ratio = random.uniform(0.3, 0.7)
-            qty_to_fill = order.remaining_qty * fill_ratio
-            filled_qty = order.fill(qty_to_fill)
-            logger.info(f"Order {order.order_id} partially filled: "
-                        f"{filled_qty:.2f}/{order.qty:.2f} @ ${order.price:.2f}")
-            return {
-                'order_id': order.order_id,
-                'status': 'partially_filled',
-                'filled_qty': filled_qty,
-                'remaining_qty': order.remaining_qty,
-                'fill_price': order.price,
-                'message': f'Order partially filled: {filled_qty:.2f}/{order.qty}'
-            }
-
-        else:
-            # Cancel order
-            order.transition(OrderState.CANCELED)
-            logger.info(f"Order {order.order_id} canceled (no match)")
-            return {
-                'order_id': order.order_id,
-                'status': 'canceled',
+                'status': 'rejected',
                 'filled_qty': 0.0,
                 'remaining_qty': order.remaining_qty,
-                'message': 'Order canceled (no match found)'
+                'message': 'No bar data available for matching'
             }
+
+        bar = self._current_bar
+
+        # Determine fill price based on configuration
+        fill_price = self._get_fill_price(bar, order)
+        if fill_price is None:
+            # Limit order not fillable at current bar
+            return {
+                'order_id': order.order_id,
+                'status': 'pending',
+                'filled_qty': 0.0,
+                'remaining_qty': order.remaining_qty,
+                'message': 'Limit price not within bar range'
+            }
+
+        # Apply slippage
+        fill_price = self._apply_slippage(fill_price, order)
+
+        # Calculate fillable quantity based on volume
+        max_fill_qty = bar.volume * self.max_volume_pct
+        fill_qty = min(order.remaining_qty, max_fill_qty)
+
+        if fill_qty <= 0:
+            return {
+                'order_id': order.order_id,
+                'status': 'rejected',
+                'filled_qty': 0.0,
+                'remaining_qty': order.remaining_qty,
+                'message': 'Insufficient volume for fill'
+            }
+
+        # Execute fill
+        filled_qty = order.fill(fill_qty)
+
+        if order.remaining_qty <= 0:
+            status = 'filled'
+            message = 'Order fully filled'
+        else:
+            status = 'partially_filled'
+            message = f'Order partially filled: {filled_qty:.2f}/{order.qty}'
+
+        logger.info(f"Order {order.order_id} {status}: {filled_qty:.2f} @ ${fill_price:.2f}")
+
+        return {
+            'order_id': order.order_id,
+            'status': status,
+            'filled_qty': filled_qty,
+            'remaining_qty': order.remaining_qty,
+            'fill_price': fill_price,
+            'message': message
+        }
+
+    def _get_fill_price(self, bar: Bar, order: Order) -> Optional[float]:
+        """
+        Get fill price based on order type and bar data.
+
+        :param bar: Current bar
+        :param order: Order to fill
+        :return: Fill price or None if limit order not fillable
+        """
+        # For market orders, use configured fill price
+        if not hasattr(order, 'limit_price') or order.limit_price is None:
+            if self.fill_at == "open":
+                return bar.open
+            elif self.fill_at == "vwap" and bar.vwap is not None:
+                return bar.vwap
+            else:
+                return bar.close
+
+        # For limit orders, check if price was hit during bar
+        limit_price = order.limit_price
+        if bar.low <= limit_price <= bar.high:
+            return limit_price
+        return None
+
+    def _apply_slippage(self, price: float, order: Order) -> float:
+        """
+        Apply slippage to fill price.
+
+        :param price: Base fill price
+        :param order: Order (for direction)
+        :return: Price with slippage applied
+        """
+        if self.slippage_bps <= 0:
+            return price
+
+        slippage_pct = self.slippage_bps / 10000.0
+        # Buy orders get worse price (higher), sell orders get worse (lower)
+        from orders.order import OrderSide
+        if order.side == OrderSide.BUY:
+            return price * (1 + slippage_pct)
+        else:
+            return price * (1 - slippage_pct)
