@@ -103,46 +103,23 @@ class BacktestEngine:
 
             # Record initial equity on first bar
             if first_bar:
-                initial_value = self._portfolio.get_total_value()
-                self._equity_tracker.record_tick(bar.timestamp, initial_value)
+                self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
                 first_bar = False
 
-            # Create market data point for strategy
-            tick = MarketDataPoint(
-                timestamp=bar.timestamp,
-                symbol=bar.symbol,
-                price=bar.close,
-            )
-
             # Generate signal from strategy
+            tick = MarketDataPoint(timestamp=bar.timestamp, symbol=bar.symbol, price=bar.close)
             signals = self._strategy.generate_signals(tick)
-            if not signals:
-                self._mark_to_market()
-                self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
-                continue
+            signal = signals[0] if signals else None
+            action = signal.get('action', 'HOLD') if signal else 'HOLD'
 
-            signal = signals[0]
-            action = signal.get('action', 'HOLD')
+            # Process actionable signals (BUY/SELL)
+            if action in ('BUY', 'SELL'):
+                side = LegacyOrderSide.BUY if action == 'BUY' else LegacyOrderSide.SELL
+                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                if qty > 0:
+                    self._process_order(bar, symbol, side, qty)
 
-            # Skip HOLD signals
-            if action == 'HOLD':
-                self._mark_to_market()
-                self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
-                continue
-
-            # Map action to order side
-            side = LegacyOrderSide.BUY if action == 'BUY' else LegacyOrderSide.SELL
-
-            # Calculate position size
-            qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
-            if qty <= 0:
-                logger.debug(f"Position sizer returned qty={qty}, skipping")
-                continue
-
-            # Create and process order
-            self._process_order(bar, symbol, side, qty)
-
-            # Record equity after processing
+            # Update portfolio and record equity
             self._mark_to_market()
             self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
 

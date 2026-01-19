@@ -7,7 +7,7 @@ import logging
 from typing import Optional
 
 from models import Bar, MatchingEngine
-from orders.order import Order, OrderState
+from orders.order import Order, OrderSide, OrderState
 from orders.order_book import OrderBook
 
 logger = logging.getLogger("src.order")
@@ -134,20 +134,18 @@ class DeterministicMatchingEngine(MatchingEngine):
         :param order: Order to fill
         :return: Fill price or None if limit order not fillable
         """
-        # For market orders, use configured fill price
-        if not hasattr(order, 'limit_price') or order.limit_price is None:
-            if self.fill_at == "open":
-                return bar.open
-            elif self.fill_at == "vwap" and bar.vwap is not None:
-                return bar.vwap
-            else:
-                return bar.close
+        limit_price = getattr(order, 'limit_price', None)
 
         # For limit orders, check if price was hit during bar
-        limit_price = order.limit_price
-        if bar.low <= limit_price <= bar.high:
-            return limit_price
-        return None
+        if limit_price is not None:
+            if bar.low <= limit_price <= bar.high:
+                return limit_price
+            return None
+
+        # For market orders, use configured fill price
+        price_map = {"open": bar.open, "vwap": bar.vwap, "close": bar.close}
+        price = price_map.get(self.fill_at)
+        return price if price is not None else bar.close
 
     def _apply_slippage(self, price: float, order: Order) -> float:
         """
@@ -162,8 +160,5 @@ class DeterministicMatchingEngine(MatchingEngine):
 
         slippage_pct = self.slippage_bps / 10000.0
         # Buy orders get worse price (higher), sell orders get worse (lower)
-        from orders.order import OrderSide
-        if order.side == OrderSide.BUY:
-            return price * (1 + slippage_pct)
-        else:
-            return price * (1 - slippage_pct)
+        direction = 1 if order.side == OrderSide.BUY else -1
+        return price * (1 + direction * slippage_pct)

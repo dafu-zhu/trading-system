@@ -37,6 +37,51 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def print_config(symbol: str, start, end, timeframe: str, capital: float, position_size: float, slippage: float) -> None:
+    """Print backtest configuration."""
+    print("\n" + "=" * 70)
+    print("BACKTEST CONFIGURATION")
+    print("=" * 70)
+    print(f"  Symbol:         {symbol}")
+    print(f"  Date range:     {start.date()} to {end.date()}")
+    print(f"  Timeframe:      {timeframe}")
+    print(f"  Initial capital: ${capital:,.2f}")
+    print(f"  Position size:   {position_size * 100:.1f}%")
+    print(f"  Slippage:        {slippage} bps")
+    print("=" * 70 + "\n")
+
+
+def print_results(results: dict, verbose: bool) -> None:
+    """Print backtest results."""
+    print("\n" + "=" * 70)
+    print("BACKTEST RESULTS")
+    print("=" * 70)
+    print(f"  Symbol:          {results['symbol']}")
+    print(f"  Bars processed:  {results['bar_count']:,}")
+    print(f"  Total trades:    {results['total_trades']}")
+    print("-" * 70)
+    print(f"  Initial capital: ${results['initial_capital']:,.2f}")
+    print(f"  Final value:     ${results['final_value']:,.2f}")
+    print(f"  Total return:    {results['total_return_pct']:.2f}%")
+    print("=" * 70)
+
+    if verbose and results['trades']:
+        print("\nTRADE HISTORY:")
+        print("-" * 70)
+        for i, trade in enumerate(results['trades'][:10], 1):
+            print(f"  {i}. {trade}")
+        if len(results['trades']) > 10:
+            print(f"  ... and {len(results['trades']) - 10} more trades")
+
+    equity_curve = results['equity_curve']
+    if equity_curve:
+        values = [e['value'] for e in equity_curve]
+        print("\nEQUITY CURVE:")
+        print(f"  Peak:   ${max(values):,.2f}")
+        print(f"  Trough: ${min(values):,.2f}")
+        print(f"  Points: {len(equity_curve)}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run backtest using Alpaca data",
@@ -111,17 +156,7 @@ def main():
     }
     timeframe = timeframe_map[args.timeframe]
 
-    # Initialize components
-    print("\n" + "=" * 70)
-    print("BACKTEST CONFIGURATION")
-    print("=" * 70)
-    print(f"  Symbol:         {args.symbol}")
-    print(f"  Date range:     {start.date()} to {end.date()}")
-    print(f"  Timeframe:      {args.timeframe}")
-    print(f"  Initial capital: ${args.capital:,.2f}")
-    print(f"  Position size:   {args.position_size * 100:.1f}%")
-    print(f"  Slippage:        {args.slippage} bps")
-    print("=" * 70 + "\n")
+    print_config(args.symbol, start, end, args.timeframe, args.capital, args.position_size, args.slippage)
 
     # Create gateway and connect
     gateway = AlpacaDataGateway()
@@ -155,38 +190,7 @@ def main():
         print("Running backtest...")
         results = engine.run(args.symbol, timeframe, start, end)
 
-        # Print results
-        print("\n" + "=" * 70)
-        print("BACKTEST RESULTS")
-        print("=" * 70)
-        print(f"  Symbol:          {results['symbol']}")
-        print(f"  Bars processed:  {results['bar_count']:,}")
-        print(f"  Total trades:    {results['total_trades']}")
-        print("-" * 70)
-        print(f"  Initial capital: ${results['initial_capital']:,.2f}")
-        print(f"  Final value:     ${results['final_value']:,.2f}")
-        print(f"  Total return:    {results['total_return_pct']:.2f}%")
-        print("=" * 70)
-
-        # Show trades if verbose
-        if args.verbose and results['trades']:
-            print("\nTRADE HISTORY:")
-            print("-" * 70)
-            for i, trade in enumerate(results['trades'][:10], 1):
-                print(f"  {i}. {trade}")
-            if len(results['trades']) > 10:
-                print(f"  ... and {len(results['trades']) - 10} more trades")
-
-        # Show equity curve summary
-        equity_curve = results['equity_curve']
-        if equity_curve:
-            values = [e['value'] for e in equity_curve]
-            max_value = max(values)
-            min_value = min(values)
-            print(f"\nEQUITY CURVE:")
-            print(f"  Peak:   ${max_value:,.2f}")
-            print(f"  Trough: ${min_value:,.2f}")
-            print(f"  Points: {len(equity_curve)}")
+        print_results(results, args.verbose)
 
     finally:
         gateway.disconnect()
