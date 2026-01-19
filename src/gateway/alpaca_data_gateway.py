@@ -113,6 +113,10 @@ class AlpacaDataGateway(DataGateway):
         }
         return mapping[timeframe]
 
+    def _ensure_utc(self, dt: datetime) -> datetime:
+        """Ensure datetime is timezone-aware (UTC)."""
+        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
     def _alpaca_bar_to_bar(self, symbol: str, alpaca_bar, timeframe: Timeframe) -> Bar:
         """Convert Alpaca bar to internal Bar."""
         return Bar(
@@ -124,8 +128,10 @@ class AlpacaDataGateway(DataGateway):
             low=float(alpaca_bar.low),
             close=float(alpaca_bar.close),
             volume=int(alpaca_bar.volume),
-            vwap=float(alpaca_bar.vwap) if hasattr(alpaca_bar, 'vwap') and alpaca_bar.vwap else None,
-            trade_count=int(alpaca_bar.trade_count) if hasattr(alpaca_bar, 'trade_count') and alpaca_bar.trade_count else None,
+            vwap=float(alpaca_bar.vwap) if getattr(alpaca_bar, "vwap", None) else None,
+            trade_count=int(alpaca_bar.trade_count)
+            if getattr(alpaca_bar, "trade_count", None)
+            else None,
         )
 
     def fetch_bars(
@@ -149,7 +155,9 @@ class AlpacaDataGateway(DataGateway):
             if cached_bars:
                 logger.debug(
                     "Found %d cached bars for %s %s",
-                    len(cached_bars), symbol, timeframe.value
+                    len(cached_bars),
+                    symbol,
+                    timeframe.value,
                 )
                 return cached_bars
 
@@ -172,12 +180,8 @@ class AlpacaDataGateway(DataGateway):
     ) -> list[Bar]:
         """Fetch bars directly from Alpaca API."""
         alpaca_tf = self._to_alpaca_timeframe(timeframe)
-
-        # Ensure timezone-aware datetimes for Alpaca
-        if start.tzinfo is None:
-            start = start.replace(tzinfo=timezone.utc)
-        if end.tzinfo is None:
-            end = end.replace(tzinfo=timezone.utc)
+        start = self._ensure_utc(start)
+        end = self._ensure_utc(end)
 
         request = StockBarsRequest(
             symbol_or_symbols=symbol,
@@ -188,17 +192,18 @@ class AlpacaDataGateway(DataGateway):
 
         try:
             response = self._data_client.get_stock_bars(request)
-            bars = []
-
-            # Access data via .data attribute (BarSet object)
-            data = response.data if hasattr(response, 'data') else response
-            if symbol in data:
-                for alpaca_bar in data[symbol]:
-                    bars.append(self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe))
+            data = response.data if hasattr(response, "data") else response
+            bars = [
+                self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe)
+                for alpaca_bar in data.get(symbol, [])
+            ]
 
             logger.info(
                 "Fetched %d bars for %s from %s to %s",
-                len(bars), symbol, start.date(), end.date()
+                len(bars),
+                symbol,
+                start.date(),
+                end.date(),
             )
             return bars
 
@@ -225,11 +230,8 @@ class AlpacaDataGateway(DataGateway):
         self._ensure_connected()
 
         alpaca_tf = self._to_alpaca_timeframe(timeframe)
-
-        if start.tzinfo is None:
-            start = start.replace(tzinfo=timezone.utc)
-        if end.tzinfo is None:
-            end = end.replace(tzinfo=timezone.utc)
+        start = self._ensure_utc(start)
+        end = self._ensure_utc(end)
 
         request = StockBarsRequest(
             symbol_or_symbols=symbols,
@@ -240,23 +242,23 @@ class AlpacaDataGateway(DataGateway):
 
         try:
             response = self._data_client.get_stock_bars(request)
+            data = response.data if hasattr(response, "data") else response
             result = {}
 
-            # Access data via .data attribute (BarSet object)
-            data = response.data if hasattr(response, 'data') else response
             for symbol in symbols:
-                bars = []
-                if symbol in data:
-                    for alpaca_bar in data[symbol]:
-                        bars.append(self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe))
+                bars = [
+                    self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe)
+                    for alpaca_bar in data.get(symbol, [])
+                ]
                 result[symbol] = bars
 
-                # Cache each symbol's bars
                 if self._use_cache and self._storage and bars:
                     self._storage.save_bars(bars)
 
             total_bars = sum(len(bars) for bars in result.values())
-            logger.info("Fetched %d total bars for %d symbols", total_bars, len(symbols))
+            logger.info(
+                "Fetched %d total bars for %d symbols", total_bars, len(symbols)
+            )
             return result
 
         except APIError as e:
@@ -281,7 +283,9 @@ class AlpacaDataGateway(DataGateway):
         if self._use_cache and self._storage:
             cached_bars = self._storage.get_bars(symbol, timeframe, start, end)
             if cached_bars:
-                logger.debug("Streaming %d cached bars for %s", len(cached_bars), symbol)
+                logger.debug(
+                    "Streaming %d cached bars for %s", len(cached_bars), symbol
+                )
                 for bar in cached_bars:
                     yield bar
                 return
@@ -327,13 +331,15 @@ class AlpacaDataGateway(DataGateway):
                 # Check for early close (before 16:00)
                 early_close = close_time.hour < 16
 
-                result.append(MarketCalendarDay(
-                    date=day.date,
-                    open_time=open_time,
-                    close_time=close_time,
-                    is_open=True,
-                    early_close=early_close,
-                ))
+                result.append(
+                    MarketCalendarDay(
+                        date=day.date,
+                        open_time=open_time,
+                        close_time=close_time,
+                        is_open=True,
+                        early_close=early_close,
+                    )
+                )
 
             logger.debug("Retrieved calendar for %d trading days", len(result))
             return result
@@ -387,10 +393,14 @@ class AlpacaDataGateway(DataGateway):
 
             logger.info(
                 "Fetching chunk: %s to %s for %d symbols",
-                current_start.date(), chunk_end.date(), len(symbols)
+                current_start.date(),
+                chunk_end.date(),
+                len(symbols),
             )
 
-            bars_by_symbol = self.fetch_bars_bulk(symbols, timeframe, current_start, chunk_end)
+            bars_by_symbol = self.fetch_bars_bulk(
+                symbols, timeframe, current_start, chunk_end
+            )
 
             for symbol, bars in bars_by_symbol.items():
                 result[symbol] += len(bars)

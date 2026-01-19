@@ -7,7 +7,7 @@ Provides persistent storage for OHLCV bars with efficient querying.
 import sqlite3
 import logging
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
 from contextlib import contextmanager
 
@@ -148,6 +148,14 @@ class BarStorage:
             )
             return [self._row_to_bar(row) for row in cursor.fetchall()]
 
+    def _parse_timestamp(self, ts) -> Optional[datetime]:
+        """Parse timestamp from SQLite, handling both string and datetime formats."""
+        if ts is None:
+            return None
+        if isinstance(ts, str):
+            return datetime.fromisoformat(ts)
+        return ts
+
     def get_latest_timestamp(
         self,
         symbol: str,
@@ -172,13 +180,7 @@ class BarStorage:
                 (symbol, timeframe.value),
             )
             row = cursor.fetchone()
-            if row and row["latest"]:
-                ts = row["latest"]
-                # Handle string timestamps from SQLite
-                if isinstance(ts, str):
-                    return datetime.fromisoformat(ts)
-                return ts
-            return None
+            return self._parse_timestamp(row["latest"]) if row else None
 
     def get_earliest_timestamp(
         self,
@@ -202,13 +204,7 @@ class BarStorage:
                 (symbol, timeframe.value),
             )
             row = cursor.fetchone()
-            if row and row["earliest"]:
-                ts = row["earliest"]
-                # Handle string timestamps from SQLite
-                if isinstance(ts, str):
-                    return datetime.fromisoformat(ts)
-                return ts
-            return None
+            return self._parse_timestamp(row["earliest"]) if row else None
 
     def has_data(
         self,
@@ -269,9 +265,7 @@ class BarStorage:
         :return: List of unique symbols
         """
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT DISTINCT symbol FROM bars ORDER BY symbol"
-            )
+            cursor = conn.execute("SELECT DISTINCT symbol FROM bars ORDER BY symbol")
             return [row["symbol"] for row in cursor.fetchall()]
 
     def get_timeframes(self, symbol: str) -> list[Timeframe]:
@@ -289,10 +283,7 @@ class BarStorage:
                 """,
                 (symbol,),
             )
-            return [
-                Timeframe(row["timeframe"])
-                for row in cursor.fetchall()
-            ]
+            return [Timeframe(row["timeframe"]) for row in cursor.fetchall()]
 
     def delete_bars(
         self,
@@ -324,14 +315,9 @@ class BarStorage:
 
     def _row_to_bar(self, row: sqlite3.Row) -> Bar:
         """Convert a database row to a Bar object."""
-        ts = row["timestamp"]
-        # Handle string timestamps from SQLite
-        if isinstance(ts, str):
-            ts = datetime.fromisoformat(ts)
-
         return Bar(
             symbol=row["symbol"],
-            timestamp=ts,
+            timestamp=self._parse_timestamp(row["timestamp"]),
             timeframe=Timeframe(row["timeframe"]),
             open=row["open"],
             high=row["high"],
@@ -376,5 +362,7 @@ class BarStorage:
                 "earliest": row["earliest"],
                 "latest": row["latest"],
                 "db_path": str(self.db_path),
-                "db_size_mb": self.db_path.stat().st_size / (1024 * 1024) if self.db_path.exists() else 0,
+                "db_size_mb": self.db_path.stat().st_size / (1024 * 1024)
+                if self.db_path.exists()
+                else 0,
             }

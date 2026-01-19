@@ -39,8 +39,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_SYMBOLS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
 DEFAULT_START = datetime(2017, 1, 1)
 DEFAULT_END = datetime(2026, 1, 1)
-DEFAULT_TIMEFRAME = Timeframe.DAY_1
 CHUNK_DAYS = 365  # Fetch one year at a time
+
+# CLI timeframe string to enum mapping
+TIMEFRAME_MAP = {
+    "1Day": Timeframe.DAY_1,
+    "1Hour": Timeframe.HOUR_1,
+    "15Min": Timeframe.MIN_15,
+    "5Min": Timeframe.MIN_5,
+    "1Min": Timeframe.MIN_1,
+}
 
 
 def fetch_symbol_data(
@@ -72,13 +80,11 @@ def fetch_symbol_data(
             start = latest + timedelta(days=1)
             if start >= end:
                 logger.info(
-                    "%s: Data already up to date (latest: %s)",
-                    symbol, latest.date()
+                    "%s: Data already up to date (latest: %s)", symbol, latest.date()
                 )
                 return 0
             logger.info(
-                "%s: Resuming from %s (latest: %s)",
-                symbol, start.date(), latest.date()
+                "%s: Resuming from %s (latest: %s)", symbol, start.date(), latest.date()
             )
 
     total_bars = 0
@@ -88,8 +94,7 @@ def fetch_symbol_data(
         chunk_end = min(current_start + timedelta(days=CHUNK_DAYS), end)
 
         logger.info(
-            "%s: Fetching %s to %s...",
-            symbol, current_start.date(), chunk_end.date()
+            "%s: Fetching %s to %s...", symbol, current_start.date(), chunk_end.date()
         )
 
         bars = gateway.fetch_bars(symbol, timeframe, current_start, chunk_end)
@@ -125,7 +130,7 @@ def main():
     )
     parser.add_argument(
         "--timeframe",
-        choices=["1Day", "1Hour", "15Min", "5Min", "1Min"],
+        choices=list(TIMEFRAME_MAP.keys()),
         default="1Day",
         help="Bar timeframe (default: 1Day)",
     )
@@ -145,15 +150,7 @@ def main():
     # Load environment variables
     load_dotenv()
 
-    # Map timeframe string to enum
-    timeframe_map = {
-        "1Day": Timeframe.DAY_1,
-        "1Hour": Timeframe.HOUR_1,
-        "15Min": Timeframe.MIN_15,
-        "5Min": Timeframe.MIN_5,
-        "1Min": Timeframe.MIN_1,
-    }
-    timeframe = timeframe_map[args.timeframe]
+    timeframe = TIMEFRAME_MAP[args.timeframe]
 
     # Initialize storage
     storage = BarStorage()
@@ -168,7 +165,7 @@ def main():
         print(f"  Size: {stats['db_size_mb']:.2f} MB")
         print(f"  Total bars: {stats['total_bars']:,}")
         print(f"  Symbols: {stats['symbols']}")
-        if stats['earliest']:
+        if stats["earliest"]:
             print(f"  Date range: {stats['earliest']} to {stats['latest']}")
         print("=" * 60)
 
@@ -181,7 +178,9 @@ def main():
                 earliest = storage.get_earliest_timestamp(symbol, timeframe)
                 latest = storage.get_latest_timestamp(symbol, timeframe)
                 if count > 0:
-                    print(f"  {symbol}: {count:,} bars ({earliest.date()} to {latest.date()})")
+                    print(
+                        f"  {symbol}: {count:,} bars ({earliest.date()} to {latest.date()})"
+                    )
         return
 
     # Initialize gateway
