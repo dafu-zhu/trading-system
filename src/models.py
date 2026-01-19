@@ -29,6 +29,44 @@ class TimeInForce(Enum):
     FOK = "fok"  # Fill or kill
 
 
+class Timeframe(Enum):
+    """Bar timeframe enumeration."""
+    MIN_1 = "1Min"
+    MIN_5 = "5Min"
+    MIN_15 = "15Min"
+    MIN_30 = "30Min"
+    HOUR_1 = "1Hour"
+    HOUR_4 = "4Hour"
+    DAY_1 = "1Day"
+    WEEK_1 = "1Week"
+    MONTH_1 = "1Month"
+
+
+@dataclass
+class Bar:
+    """OHLCV bar data."""
+    symbol: str
+    timestamp: datetime.datetime
+    timeframe: Timeframe
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+    vwap: Optional[float] = None
+    trade_count: Optional[int] = None
+
+
+@dataclass
+class MarketCalendarDay:
+    """Market calendar entry for a trading day."""
+    date: datetime.date
+    open_time: datetime.datetime
+    close_time: datetime.datetime
+    is_open: bool = True
+    early_close: bool = False
+
+
 @dataclass
 class AccountInfo:
     """Trading account information."""
@@ -191,6 +229,96 @@ class Gateway(ABC):
         """
         Get the current market data point without advancing.
         :return Optional[MarketDataPoint]: Current tick or None if not available
+        """
+        pass
+
+
+class DataGateway(ABC):
+    """
+    Abstract base class for market data gateways.
+
+    A data gateway provides historical and real-time market data from
+    external sources like Alpaca, with optional local caching.
+    """
+
+    @abstractmethod
+    def connect(self) -> bool:
+        """
+        Connect to the data source.
+        :return: True if connection successful, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def disconnect(self) -> None:
+        """Disconnect from the data source."""
+        pass
+
+    @abstractmethod
+    def is_connected(self) -> bool:
+        """
+        Check if gateway is connected.
+        :return: True if connected, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def fetch_bars(
+        self,
+        symbol: str,
+        timeframe: Timeframe,
+        start: datetime.datetime,
+        end: datetime.datetime,
+    ) -> list[Bar]:
+        """
+        Fetch historical bars for a symbol.
+        :param symbol: Stock symbol
+        :param timeframe: Bar timeframe (1Min, 1Day, etc.)
+        :param start: Start datetime (inclusive)
+        :param end: End datetime (exclusive)
+        :return: List of Bar objects
+        """
+        pass
+
+    @abstractmethod
+    def stream_bars(
+        self,
+        symbol: str,
+        timeframe: Timeframe,
+        start: datetime.datetime,
+        end: datetime.datetime,
+    ) -> Iterator[Bar]:
+        """
+        Stream bars one at a time for backtesting.
+        :param symbol: Stock symbol
+        :param timeframe: Bar timeframe
+        :param start: Start datetime
+        :param end: End datetime
+        :return: Iterator yielding Bar objects
+        """
+        pass
+
+    @abstractmethod
+    def get_market_calendar(
+        self,
+        start: datetime.date,
+        end: datetime.date,
+    ) -> list[MarketCalendarDay]:
+        """
+        Get market calendar for a date range.
+        :param start: Start date
+        :param end: End date
+        :return: List of MarketCalendarDay objects
+        """
+        pass
+
+    @abstractmethod
+    def get_latest_bar(self, symbol: str, timeframe: Timeframe) -> Optional[Bar]:
+        """
+        Get the most recent bar for a symbol.
+        :param symbol: Stock symbol
+        :param timeframe: Bar timeframe
+        :return: Latest Bar or None if not available
         """
         pass
 
