@@ -1,188 +1,170 @@
-from models import Strategy, MarketDataPoint
+"""
+MACD trading strategy using DataGateway.
+
+Generates BUY/SELL/HOLD signals based on MACD crossovers.
+"""
+
+from datetime import datetime
+from typing import Optional
+
 import pandas as pd
-from pathlib import Path
-from data_loader.preprocessing import Preprocessor
+
+from models import Strategy, MarketDataPoint, DataGateway, Timeframe, Bar
+from data_loader.features.calculator import FeatureCalculator, FeatureParams
 
 
 class MACDStrategy(Strategy):
     """
-    MACD trading strategy using pre-calculated MACD values from preprocessing.
+    MACD trading strategy.
 
-    Expects DataFrame with 'macd', 'macd_signal', and 'macd_histogram' columns.
+    Generates signals based on MACD crossovers:
+    - BUY: MACD crosses above signal line
+    - SELL: MACD crosses below signal line
+    - HOLD: No crossover
     """
 
     def __init__(
-            self,
-            data_path: Path,
-            fast_period: int = 12,
-            slow_period: int = 26,
-            signal_period: int = 9
+        self,
+        gateway: DataGateway,
+        timeframe: Timeframe = Timeframe.DAY_1,
+        fast_period: int = 12,
+        slow_period: int = 26,
+        signal_period: int = 9,
     ):
-        self.data_path = data_path
-        self.fast_period = fast_period
-        self.slow_period = slow_period
-        self.signal_period = signal_period
-        self.df = None
+        """
+        Initialize MACD strategy.
 
-    def get_data(self, symbol: str) -> pd.DataFrame:
-        """Load and prepare data with MACD features."""
-        file_path = self.data_path / f"{symbol}.csv"
-        self.df = (
-            Preprocessor(file_path)
-            .load()
-            .clean()
-            .add_features(
-                features=['macd'],
-                macd_fast_period=self.fast_period,
-                macd_slow_period=self.slow_period,
-                macd_signal_period=self.signal_period
-            )
-            .clean()
-            .get_data
+        :param gateway: DataGateway for fetching bar data
+        :param timeframe: Timeframe for bar data (default: daily)
+        :param fast_period: Fast EMA period (default: 12)
+        :param slow_period: Slow EMA period (default: 26)
+        :param signal_period: Signal line EMA period (default: 9)
+        """
+        self._gateway = gateway
+        self._timeframe = timeframe
+        self._fast_period = fast_period
+        self._slow_period = slow_period
+        self._signal_period = signal_period
+
+        self._feature_params = FeatureParams(
+            macd_fast=fast_period,
+            macd_slow=slow_period,
+            macd_signal=signal_period,
         )
-        # Generate signals
-        self.df = self.generate_signals_from_dataframe(self.df)
-        return self.df
+
+        # Cache for loaded data
+        self._data_cache: dict[str, pd.DataFrame] = {}
+
+    def get_data(
+        self,
+        symbol: str,
+        start: Optional[datetime] = None,
+        end: Optional[datetime] = None,
+    ) -> pd.DataFrame:
+        """
+        Load and prepare data with MACD features.
+
+        :param symbol: Stock symbol
+        :param start: Start datetime (defaults to 1 year ago)
+        :param end: End datetime (defaults to now)
+        :return: DataFrame with OHLCV data, MACD indicators, and signals
+        """
+        if end is None:
+            end = datetime.now()
+        if start is None:
+            # Default to enough history for MACD calculation
+            from datetime import timedelta
+            start = end - timedelta(days=365)
+
+        # Fetch bars from gateway
+        bars = self._gateway.fetch_bars(symbol, self._timeframe, start, end)
+
+        if not bars:
+            return pd.DataFrame()
+
+        # Calculate MACD features
+        df = FeatureCalculator.calculate(bars, ['macd'], self._feature_params)
+
+        # Generate trading signals
+        df = FeatureCalculator.generate_macd_signals(df)
+
+        # Cache for tick-by-tick lookups
+        self._data_cache[symbol] = df
+
+        return df
 
     def generate_signals(self, tick: MarketDataPoint) -> list:
-        """Generate signals for a single tick using pre-calculated MACD data."""
-        if self.df is None:
-            self.get_data(tick.symbol)
+        """
+        Generate signals for a single tick using pre-calculated MACD data.
+
+        :param tick: Market data point with timestamp, symbol, and price
+        :return: List with single signal dict
+        """
+        symbol = tick.symbol
+
+        # Load data if not cached
+        if symbol not in self._data_cache:
+            self.get_data(symbol)
+
+        df = self._data_cache.get(symbol)
+        if df is None or df.empty:
+            return [self._make_signal('HOLD', tick)]
 
         # Find the row matching the tick's timestamp
         try:
-            row = self.df.loc[tick.timestamp]
-
-            return [{
-                'action': str(row['signal']),
-                'timestamp': tick.timestamp,
-                'symbol': tick.symbol,
-                'price': tick.price,
-            }]
+            row = df.loc[tick.timestamp]
+            return [self._make_signal(str(row['signal']), tick)]
         except KeyError:
-            # Timestamp not found in data
-            return [{
-                'action': 'HOLD',
-                'timestamp': tick.timestamp,
-                'symbol': tick.symbol,
-                'price': tick.price,
-            }]
+            # Timestamp not found - find closest prior timestamp
+            prior = df[df.index <= tick.timestamp]
+            if not prior.empty:
+                row = prior.iloc[-1]
+                return [self._make_signal(str(row['signal']), tick)]
+            return [self._make_signal('HOLD', tick)]
+
+    def generate_signals_batch(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+    ) -> pd.DataFrame:
+        """
+        Generate signals for all bars in a date range.
+
+        :param symbol: Stock symbol
+        :param start: Start datetime
+        :param end: End datetime
+        :return: DataFrame with OHLCV, MACD, and signal columns
+        """
+        return self.get_data(symbol, start, end)
 
     @staticmethod
-    def generate_signals_from_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    def _make_signal(action: str, tick: MarketDataPoint) -> dict:
+        """Create signal dict from action and tick."""
+        return {
+            'action': action,
+            'timestamp': tick.timestamp,
+            'symbol': tick.symbol,
+            'price': tick.price,
+        }
+
+    def clear_cache(self, symbol: Optional[str] = None) -> None:
         """
-        Generate signals from DataFrame with pre-calculated MACD values.
+        Clear cached data.
 
-        Args:
-            df: DataFrame with 'macd', 'macd_signal', 'macd_histogram' columns
-
-        Returns:
-            DataFrame with added 'signal' column ('BUY', 'SELL', 'HOLD')
+        :param symbol: Symbol to clear (None clears all)
         """
-        required_cols = ['macd', 'macd_signal', 'macd_histogram']
-        missing = [col for col in required_cols if col not in df.columns]
-        if missing:
-            raise ValueError(f"Missing columns: {missing}. Use .add_features(features=['macd'])")
+        if symbol:
+            self._data_cache.pop(symbol, None)
+        else:
+            self._data_cache.clear()
 
-        df_result = df.copy()
-        df_result['signal'] = 'HOLD'
+    @property
+    def gateway(self) -> DataGateway:
+        """Get the data gateway."""
+        return self._gateway
 
-        # Bullish crossover: MACD crosses above signal
-        bullish = (
-            (df_result['macd'].shift(1) <= df_result['macd_signal'].shift(1)) &
-            (df_result['macd'] > df_result['macd_signal'])
-        )
-        df_result.loc[bullish, 'signal'] = 'BUY'
-
-        # Bearish crossover: MACD crosses below signal
-        bearish = (
-            (df_result['macd'].shift(1) >= df_result['macd_signal'].shift(1)) &
-            (df_result['macd'] < df_result['macd_signal'])
-        )
-        df_result.loc[bearish, 'signal'] = 'SELL'
-
-        return df_result
-
-
-if __name__ == '__main__':
-    from data_loader import YF_DATA_PATH
-
-    print("=" * 70)
-    print("MACD Strategy Example")
-    print("=" * 70)
-
-    # Initialize strategy
-    strategy = MACDStrategy(
-        data_path=YF_DATA_PATH,
-        fast_period=12,
-        slow_period=26,
-        signal_period=9
-    )
-
-    # Example 1: Load data and generate signals
-    print("\n[Example 1] Loading AAPL data with MACD signals...")
-    df = strategy.get_data(symbol='AAPL')
-
-    print(f"\nDataFrame Info:")
-    print(f"  Shape: {df.shape}")
-    print(f"  Date range: {df.index[0]} to {df.index[-1]}")
-
-    # Analyze signals
-    buy_count = (df['signal'] == 'BUY').sum()
-    sell_count = (df['signal'] == 'SELL').sum()
-    hold_count = (df['signal'] == 'HOLD').sum()
-
-    print(f"\nSignal Distribution:")
-    print(f"  Total: {len(df):,}")
-    print(f"  BUY:   {buy_count:,} ({buy_count/len(df)*100:.2f}%)")
-    print(f"  SELL:  {sell_count:,} ({sell_count/len(df)*100:.2f}%)")
-    print(f"  HOLD:  {hold_count:,} ({hold_count/len(df)*100:.2f}%)")
-
-    # Show buy signals
-    buy_signals = df[df['signal'] == 'BUY']
-    if len(buy_signals) > 0:
-        print("\n" + "=" * 70)
-        print("First 3 BUY Signals:")
-        print("=" * 70)
-        print(buy_signals[['Adj Close', 'macd', 'macd_signal', 'macd_histogram', 'signal']].head(3))
-
-    # Show sell signals
-    sell_signals = df[df['signal'] == 'SELL']
-    if len(sell_signals) > 0:
-        print("\n" + "=" * 70)
-        print("First 3 SELL Signals:")
-        print("=" * 70)
-        print(sell_signals[['Adj Close', 'macd', 'macd_signal', 'macd_histogram', 'signal']].head(3))
-
-    # Example 2: Using generate_signals() with ticks
-    print("\n" + "=" * 70)
-    print("[Example 2] Using generate_signals() with individual ticks")
-    print("=" * 70)
-
-    if len(buy_signals) > 0:
-        timestamp = buy_signals.index[0]
-        price = buy_signals.iloc[0]['Adj Close']
-
-        tick = MarketDataPoint(timestamp=timestamp, symbol='AAPL', price=price)
-        signal = strategy.generate_signals(tick)[0]
-
-        print(f"\nBUY Signal at {timestamp}:")
-        print(f"  Action: {signal['action']}")
-        print(f"  Price: ${signal['price']:.2f}")
-
-    if len(sell_signals) > 0:
-        timestamp = sell_signals.index[0]
-        price = sell_signals.iloc[0]['Adj Close']
-
-        tick = MarketDataPoint(timestamp=timestamp, symbol='AAPL', price=price)
-        signal = strategy.generate_signals(tick)[0]
-
-        print(f"\nSELL Signal at {timestamp}:")
-        print(f"  Action: {signal['action']}")
-        print(f"  Price: ${signal['price']:.2f}")
-
-    # Show recent data
-    print("\n" + "=" * 70)
-    print("Last 10 Data Points:")
-    print("=" * 70)
-    print(df[['Adj Close', 'macd', 'macd_signal', 'macd_histogram', 'signal']].tail(10))
+    @property
+    def timeframe(self) -> Timeframe:
+        """Get the timeframe."""
+        return self._timeframe

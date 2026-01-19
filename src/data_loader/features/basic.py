@@ -262,28 +262,3 @@ class BasicFeatures:
         true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
         df['atr'] = true_range.rolling(window=window).mean()
 
-
-if __name__ == '__main__':
-    # Example 1: List all features
-    print("Available features:", BasicFeatures.list_features())
-    print()
-
-    # Example 2: Get default parameters
-    print("RSI defaults:", BasicFeatures.get_default_params('rsi'))
-    print("MACD defaults:", BasicFeatures.get_default_params('macd'))
-    print()
-
-    from data_loader.preprocessing import Preprocessor, YF_DATA_PATH
-    df = Preprocessor(YF_DATA_PATH / "AAPL.csv").load().clean().get_data
-
-    # Example 3: Using with default column names (Open, High, Low, Close, Volume)
-    # Assuming you have a DataFrame df with standard Yahoo Finance columns
-    df_with_features = BasicFeatures.calculate(
-        df,
-        features=['returns', 'rsi', 'moving_average'],
-        windows=[10, 50, 200],  # Custom MA windows
-        rsi_window=21           # Custom RSI window
-    )
-
-    print(df_with_features)
-
