@@ -2,8 +2,71 @@ from dataclasses import dataclass, field
 import datetime
 from abc import abstractmethod, ABC
 from typing import Optional, Iterator
+from enum import Enum
 from orders.order import Order
 from orders.order_book import OrderBook
+
+
+class OrderSide(Enum):
+    """Order side enumeration."""
+    BUY = "buy"
+    SELL = "sell"
+
+
+class OrderType(Enum):
+    """Order type enumeration."""
+    MARKET = "market"
+    LIMIT = "limit"
+    STOP = "stop"
+    STOP_LIMIT = "stop_limit"
+
+
+class TimeInForce(Enum):
+    """Time in force enumeration."""
+    DAY = "day"
+    GTC = "gtc"  # Good til canceled
+    IOC = "ioc"  # Immediate or cancel
+    FOK = "fok"  # Fill or kill
+
+
+@dataclass
+class AccountInfo:
+    """Trading account information."""
+    account_id: str
+    cash: float
+    portfolio_value: float
+    buying_power: float
+    equity: float
+    currency: str = "USD"
+    is_paper: bool = True
+
+
+@dataclass
+class PositionInfo:
+    """Position information from broker."""
+    symbol: str
+    quantity: float
+    avg_entry_price: float
+    market_value: float
+    unrealized_pl: float
+    side: str  # "long" or "short"
+
+
+@dataclass
+class OrderResult:
+    """Result of an order submission."""
+    order_id: str
+    client_order_id: Optional[str]
+    symbol: str
+    side: OrderSide
+    order_type: OrderType
+    quantity: float
+    filled_quantity: float
+    status: str  # "new", "filled", "partially_filled", "canceled", "rejected"
+    submitted_at: Optional[datetime.datetime] = None
+    filled_at: Optional[datetime.datetime] = None
+    filled_avg_price: Optional[float] = None
+    message: Optional[str] = None
 
 
 @dataclass
@@ -156,5 +219,104 @@ class PositionSizer(ABC):
         :param portfolio: Current portfolio state
         :param price: Current price of the instrument
         :return: Number of shares to trade
+        """
+        pass
+
+
+class TradingGateway(ABC):
+    """
+    Abstract base class for trading gateways.
+
+    A trading gateway handles order submission, cancellation, and account/position
+    queries with a broker or exchange.
+    """
+
+    @abstractmethod
+    def connect(self) -> bool:
+        """
+        Connect to the trading API.
+        :return: True if connection successful, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def disconnect(self) -> None:
+        """Disconnect from the trading API."""
+        pass
+
+    @abstractmethod
+    def is_connected(self) -> bool:
+        """
+        Check if gateway is connected.
+        :return: True if connected, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def submit_order(
+        self,
+        symbol: str,
+        side: OrderSide,
+        quantity: float,
+        order_type: OrderType = OrderType.MARKET,
+        limit_price: Optional[float] = None,
+        stop_price: Optional[float] = None,
+        time_in_force: TimeInForce = TimeInForce.DAY,
+        client_order_id: Optional[str] = None,
+    ) -> OrderResult:
+        """
+        Submit an order to the broker.
+        :param symbol: Stock symbol
+        :param side: Buy or sell
+        :param quantity: Number of shares
+        :param order_type: Market, limit, stop, or stop-limit
+        :param limit_price: Limit price (required for limit/stop-limit orders)
+        :param stop_price: Stop price (required for stop/stop-limit orders)
+        :param time_in_force: Order duration
+        :param client_order_id: Optional client-specified order ID
+        :return: OrderResult with submission details
+        """
+        pass
+
+    @abstractmethod
+    def cancel_order(self, order_id: str) -> bool:
+        """
+        Cancel an existing order.
+        :param order_id: The order ID to cancel
+        :return: True if cancellation request successful, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def get_order(self, order_id: str) -> Optional[OrderResult]:
+        """
+        Get the current status of an order.
+        :param order_id: The order ID to query
+        :return: OrderResult or None if not found
+        """
+        pass
+
+    @abstractmethod
+    def get_account(self) -> AccountInfo:
+        """
+        Get current account information.
+        :return: AccountInfo with cash, equity, buying power, etc.
+        """
+        pass
+
+    @abstractmethod
+    def get_positions(self) -> list[PositionInfo]:
+        """
+        Get all current positions.
+        :return: List of PositionInfo objects
+        """
+        pass
+
+    @abstractmethod
+    def get_position(self, symbol: str) -> Optional[PositionInfo]:
+        """
+        Get position for a specific symbol.
+        :param symbol: Stock symbol
+        :return: PositionInfo or None if no position
         """
         pass
