@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from config.trading_config import LiveEngineConfig, DataType
 from live.live_engine import LiveTradingEngine
 from models import Timeframe
@@ -280,6 +282,9 @@ def main() -> int:
     Returns:
         Exit code
     """
+    # Load environment variables from .env file
+    load_dotenv()
+
     args = parse_args()
 
     # Setup logging first
