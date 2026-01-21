@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from config.trading_config import LiveEngineConfig, DataType, SymbolConfig
+from config.trading_config import LiveEngineConfig, DataType, SymbolConfig, AssetType
 from gateway.alpaca_data_gateway import AlpacaDataGateway
 from gateway.alpaca_trading_gateway import AlpacaTradingGateway
 from models import (
@@ -715,7 +715,9 @@ class LiveTradingEngine:
                         if config_sym:
                             symbol_configs.append(config_sym)
                         else:
-                            symbol_configs.append(SymbolConfig(symbol=sym))
+                            # Auto-detect crypto symbols (contain "/")
+                            asset_type = AssetType.CRYPTO if "/" in sym else AssetType.STOCK
+                            symbol_configs.append(SymbolConfig(symbol=sym, asset_type=asset_type))
 
                 self.data_gateway.stream_realtime(
                     symbols=symbol_configs,
