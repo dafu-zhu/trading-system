@@ -109,9 +109,14 @@ class OrderResult:
 
 @dataclass
 class MarketDataPoint:
+    """Real-time market data point from streaming feed."""
+
     timestamp: datetime.datetime
     symbol: str
     price: float
+    volume: float = 0.0
+    bid_price: Optional[float] = None
+    ask_price: Optional[float] = None
 
 
 class Instrument(ABC):
