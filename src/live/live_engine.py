@@ -28,6 +28,7 @@ from models import (
 from orders.order_validator import OrderValidator
 from risk.risk_manager import RiskManager, ExitSignal
 from backtester.position_sizer import PercentSizer
+from gateway.order_gateway import OrderGateway
 
 logger = logging.getLogger(__name__)
 
@@ -141,8 +142,15 @@ class LiveTradingEngine:
         self.metrics = EngineMetrics()
         self._shutdown_requested: bool = False
 
-        # Order gateway for logging (Phase 7)
-        self.order_gateway = None
+        # Order gateway for logging
+        if config.log_orders:
+            self.order_gateway: Optional[OrderGateway] = OrderGateway(
+                log_file=config.order_log_path,
+                append=True,
+                dry_run_prefix=config.trading.dry_run,
+            )
+        else:
+            self.order_gateway = None
 
         # Set up signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -294,6 +302,17 @@ class LiveTradingEngine:
                 result.error_message,
             )
             self.metrics.orders_rejected += 1
+            # Log rejection
+            if self.order_gateway:
+                self.order_gateway.log_order_rejected(
+                    order_id=f"val_{self.metrics.orders_rejected}",
+                    symbol=symbol,
+                    side=side.value,
+                    order_type="market",
+                    quantity=quantity,
+                    price=price,
+                    reason=result.error_message,
+                )
             return
 
         # Execute order
@@ -343,6 +362,17 @@ class LiveTradingEngine:
                     result.order_id,
                 )
 
+                # Log order sent
+                if self.order_gateway:
+                    self.order_gateway.log_order_sent(
+                        order_id=result.order_id,
+                        symbol=symbol,
+                        side=side.value,
+                        order_type="market",
+                        quantity=quantity,
+                        price=price,
+                    )
+
                 # Record for rate limiting
                 self.order_validator.record_order(symbol, result.order_id)
 
@@ -362,9 +392,21 @@ class LiveTradingEngine:
             except Exception as e:
                 logger.error("Order FAILED for %s: %s", symbol, e)
                 self.metrics.orders_rejected += 1
+                # Log rejection
+                if self.order_gateway:
+                    self.order_gateway.log_order_rejected(
+                        order_id=f"failed_{self.metrics.orders_submitted}",
+                        symbol=symbol,
+                        side=side.value,
+                        order_type="market",
+                        quantity=quantity,
+                        price=price,
+                        reason=str(e),
+                    )
 
         else:
             # Dry run - simulate fill
+            dry_run_order_id = f"dry_{self.metrics.orders_submitted}"
             logger.info(
                 "DRY RUN: %s %.2f %s @ %.2f",
                 side.value,
@@ -372,6 +414,17 @@ class LiveTradingEngine:
                 symbol,
                 price,
             )
+            # Log dry run order
+            if self.order_gateway:
+                self.order_gateway.log_order_sent(
+                    order_id=dry_run_order_id,
+                    symbol=symbol,
+                    side=side.value,
+                    order_type="market",
+                    quantity=quantity,
+                    price=price,
+                    message="DRY_RUN",
+                )
             self._process_fill(
                 symbol=symbol,
                 side=side,
@@ -499,6 +552,15 @@ class LiveTradingEngine:
             price,
             pos.quantity,
         )
+
+        # Log fill to order gateway
+        if self.order_gateway:
+            self.order_gateway.log_order_filled(
+                order_id=f"fill_{self.metrics.orders_filled}",
+                symbol=symbol,
+                filled_qty=quantity,
+                avg_price=price,
+            )
 
     def _log_status(self) -> None:
         """Log current engine status."""
