@@ -75,6 +75,11 @@ def setup_logging(log_level: str, log_file: str = "logs/live_trading.log") -> No
     file_handler.setFormatter(file_format)
     root_logger.addHandler(file_handler)
 
+    # Quiet noisy third-party loggers
+    logging.getLogger("alpaca").setLevel(logging.WARNING)
+    logging.getLogger("websockets").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
 
 def get_strategy(name: str, data_gateway, timeframe: Timeframe = Timeframe.MIN_1):
     """
