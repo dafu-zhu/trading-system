@@ -486,16 +486,22 @@ class AlpacaDataGateway(DataGateway):
 
     async def _handle_trade(self, trade) -> None:
         """Handle incoming trade data from WebSocket."""
-        if self._stream_callback is None:
-            return
+        try:
+            logger.debug("Received trade: %s @ %.4f", trade.symbol, float(trade.price))
 
-        tick = MarketDataPoint(
-            timestamp=trade.timestamp.replace(tzinfo=None),
-            symbol=trade.symbol,
-            price=float(trade.price),
-            volume=float(trade.size),
-        )
-        self._stream_callback(tick)
+            if self._stream_callback is None:
+                logger.warning("No callback set for trade data")
+                return
+
+            tick = MarketDataPoint(
+                timestamp=trade.timestamp.replace(tzinfo=None),
+                symbol=trade.symbol,
+                price=float(trade.price),
+                volume=float(trade.size),
+            )
+            self._stream_callback(tick)
+        except Exception as e:
+            logger.exception("Error handling trade: %s", e)
 
     async def _handle_quote(self, quote) -> None:
         """Handle incoming quote data from WebSocket."""
@@ -639,6 +645,7 @@ class AlpacaDataGateway(DataGateway):
                 data_type.value,
                 crypto_symbols,
             )
+            logger.info("Waiting for crypto market data (this may take a moment)...")
 
         # Run the streams (blocking)
         # If both stock and crypto, run stock in main thread
