@@ -151,9 +151,17 @@ class AlpacaDataGateway(DataGateway):
         timeframe: Timeframe,
         start: datetime,
         end: datetime,
+        asset_class: Optional[AssetType] = None,
     ) -> list[Bar]:
         """
         Fetch historical bars for a symbol.
+
+        Args:
+            symbol: Trading symbol
+            timeframe: Bar timeframe
+            start: Start datetime
+            end: End datetime
+            asset_class: Asset type (STOCK or CRYPTO). If None, inferred from symbol.
 
         If caching is enabled, checks cache first and only fetches
         missing data from Alpaca.
@@ -173,7 +181,7 @@ class AlpacaDataGateway(DataGateway):
                 return cached_bars
 
         # Fetch from Alpaca
-        bars = self._fetch_from_alpaca(symbol, timeframe, start, end)
+        bars = self._fetch_from_alpaca(symbol, timeframe, start, end, asset_class)
 
         # Cache the results
         if self._use_cache and self._storage and bars:
@@ -182,9 +190,9 @@ class AlpacaDataGateway(DataGateway):
 
         return bars
 
-    def _is_crypto_symbol(self, symbol: str) -> bool:
-        """Check if symbol is a crypto pair (contains '/')."""
-        return "/" in symbol
+    def _infer_asset_class(self, symbol: str) -> AssetType:
+        """Infer asset class from symbol format. Crypto symbols contain '/'."""
+        return AssetType.CRYPTO if "/" in symbol else AssetType.STOCK
 
     def _fetch_from_alpaca(
         self,
@@ -192,16 +200,27 @@ class AlpacaDataGateway(DataGateway):
         timeframe: Timeframe,
         start: datetime,
         end: datetime,
+        asset_class: Optional[AssetType] = None,
     ) -> list[Bar]:
-        """Fetch bars directly from Alpaca API."""
+        """
+        Fetch bars directly from Alpaca API.
+
+        Args:
+            symbol: Trading symbol
+            timeframe: Bar timeframe
+            start: Start datetime
+            end: End datetime
+            asset_class: Asset type (STOCK or CRYPTO). If None, inferred from symbol.
+        """
         alpaca_tf = self._to_alpaca_timeframe(timeframe)
         start = self._ensure_utc(start)
         end = self._ensure_utc(end)
 
-        is_crypto = self._is_crypto_symbol(symbol)
+        # Resolve asset class
+        resolved_asset_class = asset_class if asset_class else self._infer_asset_class(symbol)
 
         try:
-            if is_crypto:
+            if resolved_asset_class == AssetType.CRYPTO:
                 request = CryptoBarsRequest(
                     symbol_or_symbols=symbol,
                     timeframe=alpaca_tf,
@@ -225,8 +244,9 @@ class AlpacaDataGateway(DataGateway):
             ]
 
             logger.info(
-                "Fetched %d bars for %s from %s to %s",
+                "Fetched %d %s bars for %s from %s to %s",
                 len(bars),
+                resolved_asset_class.value,
                 symbol,
                 start.date(),
                 end.date(),
@@ -701,7 +721,7 @@ class AlpacaDataGateway(DataGateway):
 
     def replay_historical(
         self,
-        symbols: list[str],
+        symbols: list[str | SymbolConfig],
         callback: Callable[[MarketDataPoint], None],
         timeframe: Timeframe,
         start: datetime,
@@ -714,7 +734,7 @@ class AlpacaDataGateway(DataGateway):
         Useful for dry-run mode without Alpaca credentials.
 
         Args:
-            symbols: List of symbols to replay
+            symbols: List of symbols (strings or SymbolConfig) to replay
             callback: Function called with each MarketDataPoint
             timeframe: Bar timeframe
             start: Start datetime
@@ -727,8 +747,14 @@ class AlpacaDataGateway(DataGateway):
 
         # Collect all bars and sort by timestamp
         all_bars: list[tuple[datetime, Bar]] = []
-        for symbol in symbols:
-            bars = self.fetch_bars(symbol, timeframe, start, end)
+        for sym in symbols:
+            if isinstance(sym, SymbolConfig):
+                symbol = sym.symbol
+                asset_class = sym.asset_type
+            else:
+                symbol = sym
+                asset_class = None  # Will be inferred
+            bars = self.fetch_bars(symbol, timeframe, start, end, asset_class)
             for bar in bars:
                 all_bars.append((bar.timestamp, bar))
 
