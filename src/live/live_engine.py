@@ -42,8 +42,10 @@ class EngineMetrics:
     orders_filled: int = 0
     orders_rejected: int = 0
     stop_loss_triggered: int = 0
+    signals_generated: int = 0
     start_time: Optional[datetime] = None
     last_tick_time: Optional[datetime] = None
+    last_status_time: Optional[datetime] = None
 
 
 @dataclass
@@ -228,6 +230,15 @@ class LiveTradingEngine:
             self.metrics.tick_count += 1
             self.metrics.last_tick_time = tick.timestamp
 
+            # Log tick at debug level
+            logger.debug(
+                "[%s] %s: $%.4f (vol: %.2f)",
+                tick.timestamp.strftime("%H:%M:%S"),
+                tick.symbol,
+                tick.price,
+                tick.volume or 0,
+            )
+
             # Update current prices
             self.current_prices[tick.symbol] = tick.price
 
@@ -255,30 +266,42 @@ class LiveTradingEngine:
 
             # If circuit breaker triggered, don't generate new signals
             if self.risk_manager and self.risk_manager.circuit_breaker_triggered:
-                if self.metrics.tick_count % self.config.status_log_interval == 0:
+                self._maybe_log_status()
+                if self.metrics.tick_count % 100 == 0:
                     logger.warning("CIRCUIT BREAKER ACTIVE - Trading halted")
                 return
 
             # Generate strategy signals
             signals = self.strategy.generate_signals(tick)
 
-            if not signals:
-                # Periodic status logging
-                if self.metrics.tick_count % self.config.status_log_interval == 0:
-                    self._log_status()
-                return
+            if signals:
+                for signal_dict in signals:
+                    action = signal_dict.get("action", "HOLD")
+                    if action in ("BUY", "SELL"):
+                        self.metrics.signals_generated += 1
+                        logger.info(
+                            "SIGNAL: %s %s @ $%.4f",
+                            action,
+                            signal_dict.get("symbol", tick.symbol),
+                            signal_dict.get("price", tick.price),
+                        )
+                        self._process_signal(signal_dict, tick)
 
-            # Process each signal
-            for signal_dict in signals:
-                if signal_dict.get("action") in ("BUY", "SELL"):
-                    self._process_signal(signal_dict, tick)
-
-            # Periodic status logging
-            if self.metrics.tick_count % self.config.status_log_interval == 0:
-                self._log_status()
+            # Time-based status logging (every 30 seconds)
+            self._maybe_log_status()
 
         except Exception as e:
             logger.exception("Error processing market data: %s", e)
+
+    def _maybe_log_status(self) -> None:
+        """Log status if enough time has passed (every 30 seconds)."""
+        now = datetime.now()
+        if self.metrics.last_status_time is None:
+            self.metrics.last_status_time = now
+            self._log_status()
+        elif (now - self.metrics.last_status_time).total_seconds() >= 30:
+            self.metrics.last_status_time = now
+            self._log_status()
 
     def _process_signal(self, signal_dict: dict, tick: MarketDataPoint) -> None:
         """
@@ -595,18 +618,31 @@ class LiveTradingEngine:
         portfolio_value = self._get_portfolio_value()
         pnl = portfolio_value - self.initial_capital
         pnl_pct = (pnl / self.initial_capital * 100) if self.initial_capital > 0 else 0
+        active_positions = len([p for p in self.positions.values() if p.quantity != 0])
+
+        # Format prices
+        price_strs = [f"{sym}=${p:.2f}" for sym, p in self.current_prices.items()]
+        prices_display = ", ".join(price_strs) if price_strs else "none"
+
+        # Calculate runtime
+        runtime = ""
+        if self.metrics.start_time:
+            elapsed = datetime.now() - self.metrics.start_time
+            mins, secs = divmod(int(elapsed.total_seconds()), 60)
+            runtime = f"{mins}m{secs}s"
 
         logger.info(
-            "Status [tick #%d]: value=$%.2f, cash=$%.2f, P&L=$%.2f (%.2f%%), "
-            "positions=%d, orders=%d/%d",
+            "STATUS | ticks:%d | signals:%d | orders:%d/%d | "
+            "positions:%d | P&L:$%.2f (%.2f%%) | prices:[%s] | runtime:%s",
             self.metrics.tick_count,
-            portfolio_value,
-            self.cash,
-            pnl,
-            pnl_pct,
-            len([p for p in self.positions.values() if p.quantity != 0]),
+            self.metrics.signals_generated,
             self.metrics.orders_filled,
             self.metrics.orders_submitted,
+            active_positions,
+            pnl,
+            pnl_pct,
+            prices_display,
+            runtime,
         )
 
     def _sync_positions(self) -> None:
