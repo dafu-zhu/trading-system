@@ -386,10 +386,12 @@ def main() -> int:
         # Run engine
         logger.info("Starting live trading engine...")
 
-        if args.dry_run and args.replay_days:
-            # Historical replay mode
+        if args.dry_run:
+            # Historical replay mode (default to 1 day if not specified)
+            replay_days = args.replay_days or 1
             end = datetime.now()
-            start = end - timedelta(days=args.replay_days)
+            start = end - timedelta(days=replay_days)
+            logger.info("Dry-run mode: replaying %d day(s) of historical data", replay_days)
             engine.run(
                 symbols=args.symbols,
                 replay_start=start,
