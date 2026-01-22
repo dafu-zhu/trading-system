@@ -24,6 +24,7 @@ from models import Timeframe
 
 # Strategy imports
 from strategy.macd_strategy import MACDStrategy
+from strategy.momentum_strategy import MomentumStrategy
 from gateway.alpaca_data_gateway import AlpacaDataGateway
 
 # Exit codes
@@ -93,14 +94,19 @@ def get_strategy(name: str, data_gateway, timeframe: Timeframe = Timeframe.MIN_1
     Returns:
         Strategy instance
     """
-    strategies = {
-        "MACDStrategy": MACDStrategy,
-    }
-
-    if name not in strategies:
-        raise ValueError(f"Unknown strategy: {name}. Available: {list(strategies.keys())}")
-
-    return strategies[name](data_gateway, timeframe)
+    if name == "MACDStrategy":
+        return MACDStrategy(data_gateway, timeframe)
+    elif name == "MomentumStrategy":
+        # MomentumStrategy doesn't need data_gateway - uses tick-by-tick
+        return MomentumStrategy(
+            lookback=5,
+            buy_threshold=0.0005,  # 0.05% to trigger
+            sell_threshold=-0.0005,
+            cooldown_ticks=20,
+        )
+    else:
+        available = ["MACDStrategy", "MomentumStrategy"]
+        raise ValueError(f"Unknown strategy: {name}. Available: {available}")
 
 
 def validate_credentials(config: LiveEngineConfig) -> bool:
