@@ -189,6 +189,34 @@ class LiveTradingEngine:
         )
         return self.cash + position_value
 
+    def _resolve_symbol_configs(self, symbols: list[str]) -> list[SymbolConfig]:
+        """
+        Convert symbol strings to SymbolConfig with proper asset_type.
+
+        Args:
+            symbols: List of symbol strings
+
+        Returns:
+            List of SymbolConfig objects with asset_type set
+        """
+        symbol_configs = []
+        for sym in symbols:
+            if isinstance(sym, SymbolConfig):
+                symbol_configs.append(sym)
+            else:
+                # Check if symbol is in config
+                config_sym = next(
+                    (s for s in self.config.symbols if s.symbol == sym),
+                    None
+                )
+                if config_sym:
+                    symbol_configs.append(config_sym)
+                else:
+                    # Auto-detect: crypto symbols contain "/"
+                    asset_type = AssetType.CRYPTO if "/" in sym else AssetType.STOCK
+                    symbol_configs.append(SymbolConfig(symbol=sym, asset_type=asset_type))
+        return symbol_configs
+
     def _on_market_data(self, tick: MarketDataPoint) -> None:
         """
         Handle incoming market data tick.
@@ -685,11 +713,14 @@ class LiveTradingEngine:
         self._shutdown_requested = False
 
         try:
+            # Convert symbols to SymbolConfig with proper asset_type
+            symbol_configs = self._resolve_symbol_configs(symbols)
+
             if self.config.trading.dry_run and replay_start and replay_end:
                 # Historical replay mode
                 logger.info("Starting historical replay from %s to %s...", replay_start, replay_end)
                 self.data_gateway.replay_historical(
-                    symbols=symbols,
+                    symbols=symbol_configs,
                     callback=self._on_market_data,
                     timeframe=replay_timeframe,
                     start=replay_start,
@@ -700,24 +731,6 @@ class LiveTradingEngine:
                 # Real-time streaming
                 logger.info("Starting market data stream...")
                 logger.info("Press Ctrl+C to stop\n")
-
-                # Convert symbols to SymbolConfig if needed
-                symbol_configs = []
-                for sym in symbols:
-                    if isinstance(sym, SymbolConfig):
-                        symbol_configs.append(sym)
-                    else:
-                        # Use config symbols if available
-                        config_sym = next(
-                            (s for s in self.config.symbols if s.symbol == sym),
-                            None
-                        )
-                        if config_sym:
-                            symbol_configs.append(config_sym)
-                        else:
-                            # Auto-detect crypto symbols (contain "/")
-                            asset_type = AssetType.CRYPTO if "/" in sym else AssetType.STOCK
-                            symbol_configs.append(SymbolConfig(symbol=sym, asset_type=asset_type))
 
                 self.data_gateway.stream_realtime(
                     symbols=symbol_configs,
