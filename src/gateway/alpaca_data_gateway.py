@@ -468,6 +468,7 @@ class AlpacaDataGateway(DataGateway):
             self._stop_streaming_flag = False
             self._subscribed_symbols: set[str] = set()
             self._symbol_configs: dict[str, SymbolConfig] = {}
+            self._first_data_received = False
 
     def _create_stock_stream(self) -> StockDataStream:
         """Create and return a StockDataStream instance."""
@@ -487,7 +488,12 @@ class AlpacaDataGateway(DataGateway):
     async def _handle_trade(self, trade) -> None:
         """Handle incoming trade data from WebSocket."""
         try:
-            logger.debug("Received trade: %s @ %.4f", trade.symbol, float(trade.price))
+            # Mark first data received (for startup timeout check)
+            if not getattr(self, '_first_data_received', False):
+                self._first_data_received = True
+                logger.info("First trade received - stream is active")
+
+            logger.debug("Trade: %s @ %.4f", trade.symbol, float(trade.price))
 
             if self._stream_callback is None:
                 logger.warning("No callback set for trade data")
@@ -535,7 +541,8 @@ class AlpacaDataGateway(DataGateway):
     def _run_stream(
         self,
         stream: StockDataStream | CryptoDataStream,
-        max_retries: int = 5,
+        max_retries: int = 3,
+        startup_timeout: float = 30.0,
     ) -> None:
         """
         Run the WebSocket stream with reconnection logic.
@@ -543,16 +550,48 @@ class AlpacaDataGateway(DataGateway):
         Args:
             stream: The data stream to run
             max_retries: Maximum reconnection attempts
+            startup_timeout: Seconds to wait for first data before assuming connection failed
         """
         retry_count = 0
-        base_delay = 1.0
+        base_delay = 2.0
+        self._first_data_received = False
+        self._stream_start_time = time.time()
+
+        def check_startup_timeout():
+            """Background thread to check if we receive data within timeout."""
+            time.sleep(startup_timeout)
+            if not self._first_data_received and not self._stop_streaming_flag:
+                logger.error(
+                    "No data received within %ds. Connection may have failed.",
+                    int(startup_timeout),
+                )
+                logger.error(
+                    "Common causes:\n"
+                    "  1. Another connection is active (Alpaca allows only 1)\n"
+                    "  2. Run: pkill -f 'python.*trading' && sleep 60\n"
+                    "  3. Check Alpaca dashboard for active connections"
+                )
+                stream.stop()
+
+        # Start timeout checker
+        timeout_thread = threading.Thread(target=check_startup_timeout, daemon=True)
+        timeout_thread.start()
 
         while not self._stop_streaming_flag and retry_count < max_retries:
             try:
-                logger.info("Starting WebSocket stream...")
+                logger.info("Connecting to WebSocket stream...")
                 stream.run()
                 # If run() returns normally, we're done
                 break
+            except ValueError as e:
+                if "connection limit exceeded" in str(e).lower():
+                    logger.error(
+                        "CONNECTION LIMIT EXCEEDED - Another WebSocket connection is active.\n"
+                        "  Fix: Kill other processes and wait 60s:\n"
+                        "    pkill -f 'python.*trading' && sleep 60"
+                    )
+                    break  # Don't retry, user action needed
+                raise
             except Exception as e:
                 retry_count += 1
                 delay = base_delay * (2 ** (retry_count - 1))  # Exponential backoff
