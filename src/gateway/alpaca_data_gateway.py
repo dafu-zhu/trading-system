@@ -12,8 +12,8 @@ import time
 from datetime import datetime, date, timedelta, timezone
 from typing import Optional, Iterator, Callable
 
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
+from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
 from alpaca.data.timeframe import TimeFrame as AlpacaTimeFrame, TimeFrameUnit
 from alpaca.data.live import StockDataStream, CryptoDataStream
 from alpaca.data.enums import DataFeed
@@ -61,6 +61,7 @@ class AlpacaDataGateway(DataGateway):
             )
 
         self._data_client: Optional[StockHistoricalDataClient] = None
+        self._crypto_data_client: Optional[CryptoHistoricalDataClient] = None
         self._trading_client: Optional[TradingClient] = None
         self._connected = False
         self._use_cache = use_cache
@@ -70,6 +71,10 @@ class AlpacaDataGateway(DataGateway):
         """Connect to Alpaca data API."""
         try:
             self._data_client = StockHistoricalDataClient(
+                api_key=self._api_key,
+                secret_key=self._api_secret,
+            )
+            self._crypto_data_client = CryptoHistoricalDataClient(
                 api_key=self._api_key,
                 secret_key=self._api_secret,
             )
@@ -90,6 +95,7 @@ class AlpacaDataGateway(DataGateway):
     def disconnect(self) -> None:
         """Disconnect from Alpaca data API."""
         self._data_client = None
+        self._crypto_data_client = None
         self._trading_client = None
         self._connected = False
         logger.info("Disconnected from Alpaca data API")
@@ -176,6 +182,10 @@ class AlpacaDataGateway(DataGateway):
 
         return bars
 
+    def _is_crypto_symbol(self, symbol: str) -> bool:
+        """Check if symbol is a crypto pair (contains '/')."""
+        return "/" in symbol
+
     def _fetch_from_alpaca(
         self,
         symbol: str,
@@ -188,15 +198,26 @@ class AlpacaDataGateway(DataGateway):
         start = self._ensure_utc(start)
         end = self._ensure_utc(end)
 
-        request = StockBarsRequest(
-            symbol_or_symbols=symbol,
-            timeframe=alpaca_tf,
-            start=start,
-            end=end,
-        )
+        is_crypto = self._is_crypto_symbol(symbol)
 
         try:
-            response = self._data_client.get_stock_bars(request)
+            if is_crypto:
+                request = CryptoBarsRequest(
+                    symbol_or_symbols=symbol,
+                    timeframe=alpaca_tf,
+                    start=start,
+                    end=end,
+                )
+                response = self._crypto_data_client.get_crypto_bars(request)
+            else:
+                request = StockBarsRequest(
+                    symbol_or_symbols=symbol,
+                    timeframe=alpaca_tf,
+                    start=start,
+                    end=end,
+                )
+                response = self._data_client.get_stock_bars(request)
+
             data = response.data if hasattr(response, "data") else response
             bars = [
                 self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe)
