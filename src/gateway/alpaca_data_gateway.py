@@ -60,7 +60,7 @@ class AlpacaDataGateway(DataGateway):
                 "ALPACA_API_SECRET environment variables or pass them directly."
             )
 
-        self._data_client: Optional[StockHistoricalDataClient] = None
+        self._stock_data_client: Optional[StockHistoricalDataClient] = None
         self._crypto_data_client: Optional[CryptoHistoricalDataClient] = None
         self._trading_client: Optional[TradingClient] = None
         self._connected = False
@@ -70,7 +70,7 @@ class AlpacaDataGateway(DataGateway):
     def connect(self) -> bool:
         """Connect to Alpaca data API."""
         try:
-            self._data_client = StockHistoricalDataClient(
+            self._stock_data_client = StockHistoricalDataClient(
                 api_key=self._api_key,
                 secret_key=self._api_secret,
             )
@@ -94,7 +94,7 @@ class AlpacaDataGateway(DataGateway):
 
     def disconnect(self) -> None:
         """Disconnect from Alpaca data API."""
-        self._data_client = None
+        self._stock_data_client = None
         self._crypto_data_client = None
         self._trading_client = None
         self._connected = False
@@ -102,7 +102,7 @@ class AlpacaDataGateway(DataGateway):
 
     def is_connected(self) -> bool:
         """Check if connected to Alpaca."""
-        return self._connected and self._data_client is not None
+        return self._connected and self._stock_data_client is not None
 
     def _ensure_connected(self) -> None:
         """Raise error if not connected."""
@@ -235,7 +235,7 @@ class AlpacaDataGateway(DataGateway):
                     start=start,
                     end=end,
                 )
-                response = self._data_client.get_stock_bars(request)
+                response = self._stock_data_client.get_stock_bars(request)
 
             data = response.data if hasattr(response, "data") else response
             bars = [
@@ -287,7 +287,7 @@ class AlpacaDataGateway(DataGateway):
         )
 
         try:
-            response = self._data_client.get_stock_bars(request)
+            response = self._stock_data_client.get_stock_bars(request)
             data = response.data if hasattr(response, "data") else response
             result = {}
 
