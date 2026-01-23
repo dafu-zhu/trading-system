@@ -479,10 +479,15 @@ class AlpacaDataGateway(DataGateway):
         )
 
     def _create_crypto_stream(self) -> CryptoDataStream:
-        """Create and return a CryptoDataStream instance."""
+        """Create and return a CryptoDataStream instance.
+
+        Uses Kraken US feed (us-1) instead of default Alpaca US feed (us)
+        because the Alpaca US endpoint doesn't reliably deliver real-time data.
+        """
         return CryptoDataStream(
             api_key=self._api_key,
             secret_key=self._api_secret,
+            url_override="wss://stream.data.alpaca.markets/v1beta3/crypto/us-1",
         )
 
     async def _handle_trade(self, trade) -> None:

@@ -143,6 +143,7 @@ class LiveTradingEngine:
         self.running: bool = False
         self.metrics = EngineMetrics()
         self._shutdown_requested: bool = False
+        self._last_signals: dict[str, str] = {}  # Track last signal per symbol to avoid duplicates
 
         # Order gateway for logging
         if config.log_orders:
@@ -277,12 +278,22 @@ class LiveTradingEngine:
             if signals:
                 for signal_dict in signals:
                     action = signal_dict.get("action", "HOLD")
+                    symbol = signal_dict.get("symbol", tick.symbol)
+
+                    # Skip if same signal as last time (avoid duplicate orders)
+                    last_signal = self._last_signals.get(symbol)
+                    if action == last_signal:
+                        continue  # Signal unchanged, skip
+
+                    # Update last signal
+                    self._last_signals[symbol] = action
+
                     if action in ("BUY", "SELL"):
                         self.metrics.signals_generated += 1
                         logger.info(
                             "SIGNAL: %s %s @ $%.4f",
                             action,
-                            signal_dict.get("symbol", tick.symbol),
+                            symbol,
                             signal_dict.get("price", tick.price),
                         )
                         self._process_signal(signal_dict, tick)
@@ -323,13 +334,16 @@ class LiveTradingEngine:
         else:
             return
 
-        # Calculate quantity using position sizer
-        # Create a mock portfolio for the sizer
-        class MockPortfolio:
-            def get_total_value(self_inner):
-                return self._get_portfolio_value()
-
-        quantity = self.position_sizer.calculate_qty(signal_dict, MockPortfolio(), price)
+        # Calculate quantity
+        if side == OrderSide.SELL and symbol in self.positions:
+            # SELL: use actual position quantity
+            quantity = self.positions[symbol].quantity
+        else:
+            # BUY: use position sizer
+            class MockPortfolio:
+                def get_total_value(self_inner):
+                    return self._get_portfolio_value()
+            quantity = self.position_sizer.calculate_qty(signal_dict, MockPortfolio(), price)
 
         if quantity <= 0:
             logger.debug("Position sizer returned 0 quantity for %s", symbol)
@@ -426,6 +440,11 @@ class LiveTradingEngine:
 
                 # Record for rate limiting
                 self.order_validator.record_order(symbol, result.order_id)
+
+                # Check if order was accepted
+                if not result.order_id or result.status == "rejected":
+                    # Order failed at API level (e.g., insufficient balance)
+                    raise ValueError(result.message or "Order rejected by broker")
 
                 # Wait for fill
                 if result.status == "filled":
@@ -792,6 +811,10 @@ class LiveTradingEngine:
 
         self.running = False
 
+        # Close all positions if configured
+        if self.config.close_positions_on_exit:
+            self._close_all_positions()
+
         # Stop streaming
         if hasattr(self.data_gateway, 'stop_streaming'):
             self.data_gateway.stop_streaming()
@@ -836,6 +859,45 @@ class LiveTradingEngine:
 
         logger.info("=" * 60)
         logger.info("Shutdown complete")
+
+    def _close_all_positions(self) -> None:
+        """Close all open positions on shutdown."""
+        if not self.trading_gateway:
+            return
+
+        open_positions = [p for p in self.positions.values() if p.quantity > 0]
+        if not open_positions:
+            logger.info("No open positions to close")
+            return
+
+        logger.info("Closing %d open position(s)...", len(open_positions))
+
+        for pos in open_positions:
+            try:
+                # Determine side (sell to close long, buy to close short)
+                side = OrderSide.SELL if pos.quantity > 0 else OrderSide.BUY
+                quantity = abs(pos.quantity)
+
+                result = self.trading_gateway.submit_order(
+                    symbol=pos.symbol,
+                    side=side,
+                    quantity=quantity,
+                    order_type=OrderType.MARKET,
+                )
+
+                if result.order_id:
+                    logger.info(
+                        "Closed %s: %s %.4f @ MARKET (order_id=%s)",
+                        pos.symbol,
+                        side.value,
+                        quantity,
+                        result.order_id,
+                    )
+                else:
+                    logger.error("Failed to close %s: %s", pos.symbol, result.message)
+
+            except Exception as e:
+                logger.error("Error closing position %s: %s", pos.symbol, e)
 
     def __repr__(self) -> str:
         status = "RUNNING" if self.running else "STOPPED"

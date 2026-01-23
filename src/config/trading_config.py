@@ -159,6 +159,7 @@ class LiveEngineConfig:
     stop_loss: StopLossConfig = field(default_factory=StopLossConfig)
     enable_trading: bool = True
     enable_stop_loss: bool = True
+    close_positions_on_exit: bool = True  # Close all positions on Ctrl+C
     log_orders: bool = True
     order_log_path: str = "logs/live_orders.csv"
     data_type: DataType = DataType.TRADES
@@ -253,6 +254,7 @@ class LiveEngineConfig:
             stop_loss=stop_loss_config,
             enable_trading=data.get("enable_trading", True),
             enable_stop_loss=data.get("enable_stop_loss", True),
+            close_positions_on_exit=data.get("close_positions_on_exit", True),
             log_orders=data.get("log_orders", True),
             order_log_path=data.get("order_log_path", "logs/live_orders.csv"),
             data_type=data_type,
@@ -337,6 +339,7 @@ class LiveEngineConfig:
             stop_loss=stop_loss_config,
             enable_trading=get_bool("TRADING_ENABLE", True),
             enable_stop_loss=get_bool("TRADING_ENABLE_STOPLOSS", True),
+            close_positions_on_exit=get_bool("TRADING_CLOSE_ON_EXIT", True),
             log_orders=get_bool("TRADING_LOG_ORDERS", True),
             order_log_path=os.getenv("TRADING_ORDER_LOG_PATH", "logs/live_orders.csv"),
             data_type=data_type,
