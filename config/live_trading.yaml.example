@@ -1,0 +1,48 @@
+# Live Trading Configuration
+# Copy to live_trading.yaml and customize
+#
+# NOTE: API credentials are loaded from environment variables:
+#   ALPACA_API_KEY
+#   ALPACA_API_SECRET
+
+# Trading mode configuration
+trading:
+  base_url: https://paper-api.alpaca.markets  # Use paper-api for paper trading
+  paper_mode: true  # Paper trading mode
+  dry_run: false    # Simulate without any API calls
+
+# Risk management limits
+risk:
+  max_position_size: 1000        # Max shares/coins per position
+  max_position_value: 100000     # Max $ per position
+  max_total_exposure: 500000     # Max total portfolio exposure $
+  max_orders_per_minute: 100     # Global rate limit
+  max_orders_per_symbol_per_minute: 20  # Per-symbol rate limit
+  min_cash_buffer: 1000          # Minimum cash to maintain
+
+# Stop-loss and circuit breaker
+stop_loss:
+  position_stop_pct: 2.0         # 2% per-position stop loss
+  trailing_stop_pct: 3.0         # 3% trailing stop
+  portfolio_stop_pct: 5.0        # 5% daily loss circuit breaker
+  max_drawdown_pct: 10.0         # 10% max drawdown circuit breaker
+  use_trailing_stops: false      # Enable trailing stops
+  enable_circuit_breaker: true   # Enable portfolio-level stops
+
+# Engine settings
+enable_trading: true             # Enable actual order submission
+enable_stop_loss: true           # Enable stop-loss management
+log_orders: true                 # Log orders to CSV
+order_log_path: logs/live_orders.csv
+data_type: trades                # trades, quotes, or bars
+status_log_interval: 100         # Log status every N ticks
+
+# Per-symbol configuration (optional)
+# Override data_type or asset_type per symbol
+symbols:
+  - symbol: AAPL
+    asset_type: stock            # stock or crypto
+    # data_type: quotes          # Override data type for this symbol
+  - symbol: BTC/USD
+    asset_type: crypto
+    data_type: trades

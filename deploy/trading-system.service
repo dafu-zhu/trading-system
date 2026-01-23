@@ -1,0 +1,43 @@
+[Unit]
+Description=Trading System Live Engine
+After=network.target
+Documentation=https://github.com/yourusername/trading-system
+
+[Service]
+Type=simple
+User=trading
+Group=trading
+WorkingDirectory=/opt/trading-system
+
+# Environment file for secrets
+EnvironmentFile=/opt/trading-system/deploy/.env
+
+# Start the live trading engine
+ExecStart=/opt/trading-system/.venv/bin/python run_live.py \
+    --symbols ${TRADING_SYMBOLS} \
+    --config config/live_trading.yaml \
+    --log-level INFO
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+# Stop gracefully (SIGTERM then SIGKILL after timeout)
+TimeoutStopSec=30
+KillMode=mixed
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/trading-system/logs /opt/trading-system/data
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trading-system
+
+[Install]
+WantedBy=multi-user.target
