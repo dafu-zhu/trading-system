@@ -190,7 +190,13 @@ class AlpacaTradingGateway(TradingGateway):
         self._ensure_connected()
 
         alpaca_side = self._map_order_side(side)
-        alpaca_tif = self._map_time_in_force(time_in_force)
+
+        # Crypto orders require GTC (Good Till Cancelled), not DAY
+        is_crypto = "/" in symbol
+        if is_crypto and time_in_force == TimeInForce.DAY:
+            alpaca_tif = AlpacaTimeInForce.GTC
+        else:
+            alpaca_tif = self._map_time_in_force(time_in_force)
 
         try:
             if order_type == OrderType.MARKET:
