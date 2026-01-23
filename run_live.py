@@ -25,7 +25,11 @@ from models import Timeframe
 # Strategy imports
 from strategy.macd_strategy import MACDStrategy
 from strategy.momentum_strategy import MomentumStrategy
+
+# Data gateway imports
 from gateway.alpaca_data_gateway import AlpacaDataGateway
+from gateway.coinbase_data_gateway import CoinbaseDataGateway
+from gateway.finnhub_data_gateway import FinnhubDataGateway
 
 # Exit codes
 EXIT_SUCCESS = 0
@@ -100,10 +104,10 @@ def get_strategy(name: str, data_gateway, timeframe: Timeframe = Timeframe.MIN_1
     elif name == "MomentumStrategy":
         # MomentumStrategy doesn't need data_gateway - uses tick-by-tick
         return MomentumStrategy(
-            lookback=5,
-            buy_threshold=0.0005,  # 0.05% to trigger
-            sell_threshold=-0.0005,
-            cooldown_ticks=20,
+            lookback=3,
+            buy_threshold=0.0001,  # 0.01% to trigger (more sensitive for crypto)
+            sell_threshold=-0.0001,
+            cooldown_ticks=5,
         )
     else:
         available = ["MACDStrategy", "MomentumStrategy"]
@@ -137,7 +141,12 @@ def validate_credentials(config: LiveEngineConfig) -> bool:
     return True
 
 
-def print_banner(config: LiveEngineConfig, symbols: list[str], strategy_name: str) -> None:
+def print_banner(
+    config: LiveEngineConfig,
+    symbols: list[str],
+    strategy_name: str,
+    data_source: str = "alpaca",
+) -> None:
     """Print startup banner."""
     mode = "DRY_RUN" if config.trading.dry_run else (
         "PAPER" if config.trading.paper_mode else "LIVE"
@@ -150,6 +159,7 @@ def print_banner(config: LiveEngineConfig, symbols: list[str], strategy_name: st
     print(f" Trading:    {'ENABLED' if config.enable_trading else 'DISABLED'}")
     print(f" Stop-Loss:  {'ENABLED' if config.enable_stop_loss else 'DISABLED'}")
     print(f" Strategy:   {strategy_name}")
+    print(f" Data Source:{data_source.upper()}")
     print(f" Data Type:  {config.data_type.value}")
     print(f" Symbols:    {', '.join(symbols)}")
     print(f" Log Orders: {'YES' if config.log_orders else 'NO'}")
@@ -183,20 +193,25 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Dry run (no real orders)
+  # Dry run with Alpaca (default)
   python run_live.py --symbols AAPL MSFT --dry-run
 
-  # Paper trading
+  # Paper trading with Alpaca
   python run_live.py --symbols AAPL --paper
 
-  # With custom config
-  python run_live.py --symbols AAPL --config config/my_config.yaml
+  # Crypto with Coinbase (free, no API key needed)
+  python run_live.py --symbols BTC/USD ETH/USD --data-source coinbase --paper
 
-  # Crypto trading
-  python run_live.py --symbols BTC/USD ETH/USD --data-type trades
+  # Stocks with Finnhub (free, needs FINNHUB_API_KEY)
+  python run_live.py --symbols AAPL MSFT --data-source finnhub --paper
 
   # Historical replay (dry run)
   python run_live.py --symbols AAPL --dry-run --replay-days 7
+
+Data Sources:
+  alpaca   - Default. Stocks & crypto. Needs ALPACA_API_KEY/SECRET.
+  coinbase - Crypto only. Free, no auth needed. Best for crypto.
+  finnhub  - Stocks only. Free tier. Needs FINNHUB_API_KEY.
         """,
     )
 
@@ -249,6 +264,16 @@ Examples:
         choices=["trades", "quotes", "bars"],
         default="trades",
         help="Market data type (default: trades)",
+    )
+
+    # Data source
+    parser.add_argument(
+        "--data-source",
+        type=str,
+        choices=["alpaca", "coinbase", "finnhub"],
+        default="alpaca",
+        help="Market data source: alpaca (default), "
+             "coinbase (crypto, no auth), finnhub (stocks, needs API key)",
     )
 
     # Logging
@@ -348,7 +373,7 @@ def main() -> int:
             return EXIT_ERROR
 
         # Print banner
-        print_banner(config, args.symbols, args.strategy)
+        print_banner(config, args.symbols, args.strategy, args.data_source)
 
         # Confirm live trading
         if not config.trading.paper_mode and not config.trading.dry_run and not args.yes:
@@ -356,14 +381,40 @@ def main() -> int:
                 logger.info("Live trading cancelled by user")
                 return EXIT_SUCCESS
 
-        # Create data gateway for strategy
-        data_gateway = AlpacaDataGateway(
-            api_key=config.trading.api_key,
-            api_secret=config.trading.api_secret,
-        )
-        if not data_gateway.connect():
+        # Create data gateway based on source
+        data_source = args.data_source.lower()
+        if data_source == "coinbase":
+            stream_gateway = CoinbaseDataGateway()
+            logger.info("Using Coinbase for real-time market data (no auth required)")
+        elif data_source == "finnhub":
+            try:
+                stream_gateway = FinnhubDataGateway()
+                logger.info("Using Finnhub for real-time market data")
+            except ValueError as e:
+                logger.error(str(e))
+                return EXIT_ERROR
+        else:  # alpaca (default)
+            stream_gateway = AlpacaDataGateway(
+                api_key=config.trading.api_key,
+                api_secret=config.trading.api_secret,
+            )
+            logger.info("Using Alpaca for market data")
+
+        if not stream_gateway.connect():
             logger.error("Failed to connect to data gateway")
             return EXIT_ERROR
+
+        # Create Alpaca gateway for historical data (needed by MACD and other indicator strategies)
+        # This is separate from the streaming gateway when using non-Alpaca data sources
+        if data_source != "alpaca" and args.strategy == "MACDStrategy":
+            historical_gateway = AlpacaDataGateway(
+                api_key=config.trading.api_key,
+                api_secret=config.trading.api_secret,
+            )
+            historical_gateway.connect()
+            logger.info("Using Alpaca for historical data (MACD calculation)")
+        else:
+            historical_gateway = stream_gateway
 
         # Create strategy
         timeframe_map = {
@@ -374,13 +425,13 @@ def main() -> int:
             "1Day": Timeframe.DAY_1,
         }
         timeframe = timeframe_map.get(args.timeframe, Timeframe.MIN_1)
-        strategy = get_strategy(args.strategy, data_gateway, timeframe)
+        strategy = get_strategy(args.strategy, historical_gateway, timeframe)
 
-        # Create engine
+        # Create engine (uses stream_gateway for real-time data)
         engine = LiveTradingEngine(
             config=config,
             strategy=strategy,
-            data_gateway=data_gateway,
+            data_gateway=stream_gateway,
         )
 
         # Run engine
