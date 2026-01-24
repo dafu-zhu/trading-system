@@ -10,7 +10,7 @@ import logging
 import threading
 import time
 from datetime import datetime, date, timedelta, timezone
-from typing import Optional, Iterator, Callable
+from typing import Optional, Iterator, Callable, cast
 
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
@@ -102,7 +102,9 @@ class AlpacaDataGateway(DataGateway):
 
     def is_connected(self) -> bool:
         """Check if connected to Alpaca."""
-        return self._connected and self._stock_data_client is not None
+        return self._connected and (
+            self._stock_data_client is not None or 
+            self._crypto_data_client is not None)
 
     def _ensure_connected(self) -> None:
         """Raise error if not connected."""
@@ -112,15 +114,15 @@ class AlpacaDataGateway(DataGateway):
     def _to_alpaca_timeframe(self, timeframe: Timeframe) -> AlpacaTimeFrame:
         """Convert internal Timeframe to Alpaca TimeFrame."""
         mapping = {
-            Timeframe.MIN_1: AlpacaTimeFrame(1, TimeFrameUnit.Minute),
-            Timeframe.MIN_5: AlpacaTimeFrame(5, TimeFrameUnit.Minute),
-            Timeframe.MIN_15: AlpacaTimeFrame(15, TimeFrameUnit.Minute),
-            Timeframe.MIN_30: AlpacaTimeFrame(30, TimeFrameUnit.Minute),
-            Timeframe.HOUR_1: AlpacaTimeFrame(1, TimeFrameUnit.Hour),
-            Timeframe.HOUR_4: AlpacaTimeFrame(4, TimeFrameUnit.Hour),
-            Timeframe.DAY_1: AlpacaTimeFrame(1, TimeFrameUnit.Day),
-            Timeframe.WEEK_1: AlpacaTimeFrame(1, TimeFrameUnit.Week),
-            Timeframe.MONTH_1: AlpacaTimeFrame(1, TimeFrameUnit.Month),
+            Timeframe.MIN_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
+            Timeframe.MIN_5: AlpacaTimeFrame(5, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
+            Timeframe.MIN_15: AlpacaTimeFrame(15, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
+            Timeframe.MIN_30: AlpacaTimeFrame(30, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
+            Timeframe.HOUR_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Hour)),
+            Timeframe.HOUR_4: AlpacaTimeFrame(4, cast(TimeFrameUnit, TimeFrameUnit.Hour)),
+            Timeframe.DAY_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Day)),
+            Timeframe.WEEK_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Week)),
+            Timeframe.MONTH_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Month)),
         }
         return mapping[timeframe]
 
