@@ -4,7 +4,6 @@ from abc import abstractmethod, ABC
 from typing import Optional, Iterator
 from enum import Enum
 from orders.order import Order
-from orders.order_book import OrderBook
 
 
 class OrderSide(Enum):
@@ -321,11 +320,10 @@ class DataGateway(ABC):
 class MatchingEngine(ABC):
 
     @abstractmethod
-    def match(self, order: Order, orderbook: OrderBook) -> dict:
+    def match(self, order: Order) -> dict:
         """
         Attempt to match an order against the order book.
         :param order: The order to match
-        :param orderbook: The market order book to match against
         :return: Dictionary with execution details (order_id, status,
                  filled_qty, remaining_qty, message)
         """

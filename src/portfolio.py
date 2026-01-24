@@ -94,7 +94,7 @@ class Portfolio:
 
     def get_position(self, symbol: str) -> list[dict]:
         """Get position for the specified symbol, return one element list"""
-        symbol_pos: Position = self._position_index.get(symbol)
+        symbol_pos = self._position_index.get(symbol)
         if not symbol_pos:
             raise ValueError(f"Symbol {symbol} not found")
         return symbol_pos.get_positions()
