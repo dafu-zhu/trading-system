@@ -12,6 +12,11 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
