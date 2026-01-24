@@ -10,7 +10,7 @@ import os
 import logging
 import threading
 import time
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timezone
 from typing import Optional, Iterator, Callable, cast, TYPE_CHECKING, Any
 
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
@@ -392,6 +392,24 @@ class AlpacaDataGateway(DataGateway):
         for bar in bars:
             yield bar
 
+    def _parse_calendar_time(self, day_date: date, time_val: datetime | str) -> datetime:
+        """Parse calendar time from datetime or HH:MM string."""
+        if isinstance(time_val, datetime):
+            return time_val
+        return datetime.combine(day_date, datetime.strptime(time_val, "%H:%M").time())
+
+    def _build_calendar_day(self, day: Any) -> MarketCalendarDay:
+        """Build MarketCalendarDay from Alpaca calendar entry."""
+        open_time = self._parse_calendar_time(day.date, day.open)
+        close_time = self._parse_calendar_time(day.date, day.close)
+        return MarketCalendarDay(
+            date=day.date,
+            open_time=open_time,
+            close_time=close_time,
+            is_open=True,
+            early_close=close_time.hour < 16,
+        )
+
     def get_market_calendar(
         self,
         start: date,
@@ -402,104 +420,25 @@ class AlpacaDataGateway(DataGateway):
 
         try:
             request = GetCalendarRequest(start=start, end=end)
+            if self._trading_client is None:
+                raise RuntimeError("Trading client not connected")
             calendar = self._trading_client.get_calendar(request)
 
-            result = []
-            for day in calendar:
-                # Handle both datetime objects and string times
-                if isinstance(day.open, datetime):
-                    open_time = day.open
-                    close_time = day.close
-                else:
-                    open_time = datetime.combine(
-                        day.date,
-                        datetime.strptime(day.open, "%H:%M").time(),
-                    )
-                    close_time = datetime.combine(
-                        day.date,
-                        datetime.strptime(day.close, "%H:%M").time(),
-                    )
+            if not isinstance(calendar, list):
+                logger.error("Unexpected calendar response type: %s", type(calendar))
+                return []
 
-                # Check for early close (before 16:00)
-                early_close = close_time.hour < 16
-
-                result.append(
-                    MarketCalendarDay(
-                        date=day.date,
-                        open_time=open_time,
-                        close_time=close_time,
-                        is_open=True,
-                        early_close=early_close,
-                    )
-                )
-
+            result = [self._build_calendar_day(day) for day in calendar]
             logger.debug("Retrieved calendar for %d trading days", len(result))
             return result
 
-        except APIError as e:
+        except (APIError, RuntimeError) as e:
             logger.error("Failed to get market calendar: %s", e)
             return []
-
-    def get_latest_bar(self, symbol: str, timeframe: Timeframe) -> Optional[Bar]:
-        """Get the most recent bar for a symbol."""
-        self._ensure_connected()
-
-        # For latest bar, fetch last few days to ensure we get data
-        end = datetime.now(timezone.utc)
-        start = end - timedelta(days=7)
-
-        bars = self.fetch_bars(symbol, timeframe, start, end)
-        return bars[-1] if bars else None
 
     def get_storage(self) -> Optional[BarStorage]:
         """Get the underlying storage instance."""
         return self._storage
-
-    def prefetch_data(
-        self,
-        symbols: list[str],
-        timeframe: Timeframe,
-        start: datetime,
-        end: datetime,
-        chunk_days: int = 365,
-    ) -> dict[str, int]:
-        """
-        Prefetch and cache data for multiple symbols.
-
-        Fetches data in chunks to avoid API limits.
-
-        :param symbols: List of stock symbols
-        :param timeframe: Bar timeframe
-        :param start: Start datetime
-        :param end: End datetime
-        :param chunk_days: Days per chunk (default 365)
-        :return: Dictionary mapping symbols to bar counts
-        """
-        self._ensure_connected()
-
-        result = {symbol: 0 for symbol in symbols}
-        current_start = start
-
-        while current_start < end:
-            chunk_end = min(current_start + timedelta(days=chunk_days), end)
-
-            logger.info(
-                "Fetching chunk: %s to %s for %d symbols",
-                current_start.date(),
-                chunk_end.date(),
-                len(symbols),
-            )
-
-            bars_by_symbol = self.fetch_bars_bulk(
-                symbols, timeframe, current_start, chunk_end
-            )
-
-            for symbol, bars in bars_by_symbol.items():
-                result[symbol] += len(bars)
-
-            current_start = chunk_end
-
-        return result
 
     # ==================== WebSocket Streaming ====================
 
@@ -519,8 +458,8 @@ class AlpacaDataGateway(DataGateway):
     def _create_stock_stream(self) -> StockDataStream:
         """Create and return a StockDataStream instance."""
         return StockDataStream(
-            api_key=self._api_key,
-            secret_key=self._api_secret,
+            api_key=self._api_key, # type: ignore
+            secret_key=self._api_secret, # type: ignore
             feed=DataFeed.IEX,  # IEX for paper trading
         )
 
@@ -531,8 +470,8 @@ class AlpacaDataGateway(DataGateway):
         because the Alpaca US endpoint doesn't reliably deliver real-time data.
         """
         return CryptoDataStream(
-            api_key=self._api_key,
-            secret_key=self._api_secret,
+            api_key=self._api_key, # type: ignore
+            secret_key=self._api_secret, # type: ignore
             url_override="wss://stream.data.alpaca.markets/v1beta3/crypto/us-1",
         )
 
@@ -662,6 +601,49 @@ class AlpacaDataGateway(DataGateway):
         self._is_streaming = False
         logger.info("WebSocket stream stopped")
 
+    def _parse_symbols_by_asset_type(
+        self,
+        symbols: list[str] | list[SymbolConfig],
+        default_asset_type: AssetType,
+    ) -> tuple[list[str], list[str]]:
+        """
+        Parse symbols into separate stock and crypto lists.
+
+        Returns:
+            Tuple of (stock_symbols, crypto_symbols)
+        """
+        stock_symbols: list[str] = []
+        crypto_symbols: list[str] = []
+
+        for sym in symbols:
+            if isinstance(sym, SymbolConfig):
+                self._symbol_configs[sym.symbol] = sym
+                target = crypto_symbols if sym.asset_type == AssetType.CRYPTO else stock_symbols
+                target.append(sym.symbol)
+            elif default_asset_type == AssetType.CRYPTO:
+                crypto_symbols.append(sym)
+            else:
+                stock_symbols.append(sym)
+
+        return stock_symbols, crypto_symbols
+
+    def _subscribe_stream(
+        self,
+        stream: StockDataStream | CryptoDataStream,
+        symbols: list[str],
+        data_type: DataType,
+        asset_label: str,
+    ) -> None:
+        """Subscribe a stream to the specified data type for given symbols."""
+        if data_type == DataType.TRADES:
+            stream.subscribe_trades(self._handle_trade, *symbols)
+        elif data_type == DataType.QUOTES:
+            stream.subscribe_quotes(self._handle_quote, *symbols)
+        elif data_type == DataType.BARS:
+            stream.subscribe_bars(self._handle_bar, *symbols)
+
+        logger.info("Subscribed to %s for %s: %s", data_type.value, asset_label, symbols)
+
     def stream_realtime(
         self,
         symbols: list[str] | list[SymbolConfig],
@@ -681,75 +663,34 @@ class AlpacaDataGateway(DataGateway):
             default_asset_type: Default asset type for simple symbol strings
         """
         self._init_streaming()
-
-        # Parse symbol configs
-        stock_symbols = []
-        crypto_symbols = []
-
-        for sym in symbols:
-            if isinstance(sym, SymbolConfig):
-                self._symbol_configs[sym.symbol] = sym
-                if sym.asset_type == AssetType.CRYPTO:
-                    crypto_symbols.append(sym.symbol)
-                else:
-                    stock_symbols.append(sym.symbol)
-            else:
-                # Simple string - use default
-                if default_asset_type == AssetType.CRYPTO:
-                    crypto_symbols.append(sym)
-                else:
-                    stock_symbols.append(sym)
+        stock_symbols, crypto_symbols = self._parse_symbols_by_asset_type(
+            symbols, default_asset_type
+        )
 
         self._stream_callback = callback
         self._subscribed_symbols = set(stock_symbols + crypto_symbols)
         self._is_streaming = True
         self._stop_streaming_flag = False
 
-        # Subscribe to data based on type
+        # Set up stock stream
         if stock_symbols:
             self._stock_stream = self._create_stock_stream()
-            if data_type == DataType.TRADES:
-                self._stock_stream.subscribe_trades(self._handle_trade, *stock_symbols)
-            elif data_type == DataType.QUOTES:
-                self._stock_stream.subscribe_quotes(self._handle_quote, *stock_symbols)
-            elif data_type == DataType.BARS:
-                self._stock_stream.subscribe_bars(self._handle_bar, *stock_symbols)
+            self._subscribe_stream(self._stock_stream, stock_symbols, data_type, "stocks")
 
-            logger.info(
-                "Subscribed to %s for stocks: %s",
-                data_type.value,
-                stock_symbols,
-            )
-
+        # Set up crypto stream
         if crypto_symbols:
             self._crypto_stream = self._create_crypto_stream()
-            if data_type == DataType.TRADES:
-                self._crypto_stream.subscribe_trades(self._handle_trade, *crypto_symbols)
-            elif data_type == DataType.QUOTES:
-                self._crypto_stream.subscribe_quotes(self._handle_quote, *crypto_symbols)
-            elif data_type == DataType.BARS:
-                self._crypto_stream.subscribe_bars(self._handle_bar, *crypto_symbols)
-
-            logger.info(
-                "Subscribed to %s for crypto: %s",
-                data_type.value,
-                crypto_symbols,
-            )
+            self._subscribe_stream(self._crypto_stream, crypto_symbols, data_type, "crypto")
             logger.info("Waiting for crypto market data (this may take a moment)...")
 
-        # Run the streams (blocking)
-        # If both stock and crypto, run stock in main thread
-        if stock_symbols and self._stock_stream:
-            if crypto_symbols and self._crypto_stream:
-                # Start crypto in background thread
-                crypto_thread = threading.Thread(
-                    target=self._run_stream,
-                    args=(self._crypto_stream,),
-                    daemon=True,
-                )
-                crypto_thread.start()
+        # Run streams: stock in main thread (with crypto in background if both), else crypto only
+        if self._stock_stream:
+            if self._crypto_stream:
+                threading.Thread(
+                    target=self._run_stream, args=(self._crypto_stream,), daemon=True
+                ).start()
             self._run_stream(self._stock_stream)
-        elif crypto_symbols and self._crypto_stream:
+        elif self._crypto_stream:
             self._run_stream(self._crypto_stream)
 
     def start_streaming(
