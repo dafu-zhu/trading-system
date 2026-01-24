@@ -148,7 +148,7 @@ class BarStorage:
             )
             return [self._row_to_bar(row) for row in cursor.fetchall()]
 
-    def _parse_timestamp(self, ts) -> Optional[datetime]:
+    def _parse_timestamp(self, ts: str | datetime) -> Optional[datetime]:
         """Parse timestamp from SQLite, handling both string and datetime formats."""
         if ts is None:
             return None
@@ -317,7 +317,7 @@ class BarStorage:
         """Convert a database row to a Bar object."""
         return Bar(
             symbol=row["symbol"],
-            timestamp=self._parse_timestamp(row["timestamp"]),
+            timestamp=self._parse_timestamp(row["timestamp"]), # type: ignore
             timeframe=Timeframe(row["timeframe"]),
             open=row["open"],
             high=row["high"],
