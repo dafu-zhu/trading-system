@@ -145,7 +145,7 @@ class AlpacaDataGateway(DataGateway):
             high=float(alpaca_bar.high),
             low=float(alpaca_bar.low),
             close=float(alpaca_bar.close),
-            volume=int(alpaca_bar.volume),
+            volume=float(alpaca_bar.volume),
             vwap=float(alpaca_bar.vwap) if alpaca_bar.vwap else None,
             trade_count=int(alpaca_bar.trade_count) if alpaca_bar.trade_count else None,
         )

@@ -95,24 +95,25 @@ def main():
     logger.info("-" * 60)
 
     if results:
-        logger.info(f"Total Trades: {results.get('total_trades', 0)}")
-        logger.info(f"Winning Trades: {results.get('winning_trades', 0)}")
-        logger.info(f"Losing Trades: {results.get('losing_trades', 0)}")
+        trades = results.get('trades', [])
+        winning = [t for t in trades if t.get('pnl', 0) > 0]
+        losing = [t for t in trades if t.get('pnl', 0) < 0]
+        total_pnl = sum(t.get('pnl', 0) for t in trades)
 
-        win_rate = results.get('win_rate', 0)
+        logger.info(f"Total Trades: {len(trades)}")
+        logger.info(f"Winning Trades: {len(winning)}")
+        logger.info(f"Losing Trades: {len(losing)}")
+
+        win_rate = len(winning) / len(trades) * 100 if trades else 0
         logger.info(f"Win Rate: {win_rate:.1f}%")
 
-        total_pnl = results.get('total_pnl', 0)
         logger.info(f"Total P&L: ${total_pnl:,.2f}")
 
-        final_equity = results.get('final_equity', initial_capital)
+        final_equity = results.get('final_value', initial_capital)
         logger.info(f"Final Equity: ${final_equity:,.2f}")
 
-        total_return = ((final_equity - initial_capital) / initial_capital) * 100
+        total_return = results.get('total_return_pct', 0)
         logger.info(f"Total Return: {total_return:.2f}%")
-
-        max_drawdown = results.get('max_drawdown', 0)
-        logger.info(f"Max Drawdown: {max_drawdown:.2f}%")
     else:
         logger.warning("No results returned from backtest")
 
