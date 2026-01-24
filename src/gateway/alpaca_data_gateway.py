@@ -5,12 +5,13 @@ Provides historical and real-time market data via the Alpaca API
 with optional SQLite caching and WebSocket streaming.
 """
 
+from __future__ import annotations
 import os
 import logging
 import threading
 import time
 from datetime import datetime, date, timedelta, timezone
-from typing import Optional, Iterator, Callable, cast
+from typing import Optional, Iterator, Callable, cast, TYPE_CHECKING, Any
 
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
@@ -26,6 +27,8 @@ from data_loader.storage import BarStorage
 from config.trading_config import AssetType, DataType, SymbolConfig
 
 logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from alpaca.data.models import Bar as AlpacaBar
 
 
 class AlpacaDataGateway(DataGateway):
@@ -132,7 +135,7 @@ class AlpacaDataGateway(DataGateway):
             return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
 
-    def _alpaca_bar_to_bar(self, symbol: str, alpaca_bar, timeframe: Timeframe) -> Bar:
+    def _alpaca_bar_to_bar(self, symbol: str, alpaca_bar: AlpacaBar, timeframe: Timeframe) -> Bar:
         """Convert Alpaca bar to internal Bar."""
         return Bar(
             symbol=symbol,
@@ -143,10 +146,8 @@ class AlpacaDataGateway(DataGateway):
             low=float(alpaca_bar.low),
             close=float(alpaca_bar.close),
             volume=int(alpaca_bar.volume),
-            vwap=float(alpaca_bar.vwap) if getattr(alpaca_bar, "vwap", None) else None,
-            trade_count=int(alpaca_bar.trade_count)
-            if getattr(alpaca_bar, "trade_count", None)
-            else None,
+            vwap=float(alpaca_bar.vwap) if alpaca_bar.vwap else None,
+            trade_count=int(alpaca_bar.trade_count) if alpaca_bar.trade_count else None,
         )
 
     def fetch_bars(
@@ -225,6 +226,8 @@ class AlpacaDataGateway(DataGateway):
 
         try:
             if resolved_asset_class == AssetType.CRYPTO:
+                if self._crypto_data_client is None:
+                    raise RuntimeError("Crypto client not connected")
                 request = CryptoBarsRequest(
                     symbol_or_symbols=symbol,
                     timeframe=alpaca_tf,
@@ -233,6 +236,8 @@ class AlpacaDataGateway(DataGateway):
                 )
                 response = self._crypto_data_client.get_crypto_bars(request)
             else:
+                if self._stock_data_client is None:
+                    raise RuntimeError("Stock client not connected")
                 request = StockBarsRequest(
                     symbol_or_symbols=symbol,
                     timeframe=alpaca_tf,
@@ -241,7 +246,7 @@ class AlpacaDataGateway(DataGateway):
                 )
                 response = self._stock_data_client.get_stock_bars(request)
 
-            data = response.data if hasattr(response, "data") else response
+            data: Any = getattr(response, 'data', response)
             bars = [
                 self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe)
                 for alpaca_bar in data.get(symbol, [])
