@@ -8,7 +8,6 @@ from typing import Optional
 
 from models import Bar, MatchingEngine
 from orders.order import Order, OrderSide, OrderState
-from orders.order_book import OrderBook
 
 logger = logging.getLogger("src.order")
 
@@ -44,7 +43,7 @@ class DeterministicMatchingEngine(MatchingEngine):
         """Set the current bar for matching context."""
         self._current_bar = bar
 
-    def match(self, order: Order, order_book: OrderBook) -> dict:
+    def match(self, order: Order) -> dict:
         """
         Match order against current bar data.
 

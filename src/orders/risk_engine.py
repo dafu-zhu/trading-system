@@ -6,8 +6,8 @@ class RiskEngine:
     def __init__(
             self,
             portfolio: Portfolio,
-            max_order_size=1000,
-            max_position=2000
+            max_order_size: float=1000,
+            max_position: float=2000
     ):
         self._portfolio = portfolio
         self.max_order_size = max_order_size
