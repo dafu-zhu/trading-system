@@ -128,7 +128,9 @@ class AlpacaDataGateway(DataGateway):
 
     def _ensure_utc(self, dt: datetime) -> datetime:
         """Ensure datetime is timezone-aware (UTC)."""
-        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
     def _alpaca_bar_to_bar(self, symbol: str, alpaca_bar, timeframe: Timeframe) -> Bar:
         """Convert Alpaca bar to internal Bar."""
