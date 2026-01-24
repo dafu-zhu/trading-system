@@ -317,16 +317,6 @@ class DataGateway(ABC):
         """
         pass
 
-    @abstractmethod
-    def get_latest_bar(self, symbol: str, timeframe: Timeframe) -> Optional[Bar]:
-        """
-        Get the most recent bar for a symbol.
-        :param symbol: Stock symbol
-        :param timeframe: Bar timeframe
-        :return: Latest Bar or None if not available
-        """
-        pass
-
 
 class MatchingEngine(ABC):
 

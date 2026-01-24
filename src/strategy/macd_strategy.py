@@ -84,7 +84,7 @@ class MACDStrategy(Strategy):
         df = FeatureCalculator.calculate(bars, ['macd'], self._feature_params)
 
         # Generate trading signals
-        df = FeatureCalculator.generate_macd_signals(df)
+        df = self.generate_signals_from_macd(df)
 
         # Cache for tick-by-tick lookups
         self._data_cache[symbol] = df
@@ -142,6 +142,41 @@ class MACDStrategy(Strategy):
             'symbol': tick.symbol,
             'price': tick.price,
         }
+
+    @staticmethod
+    def generate_signals_from_macd(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Generate trading signals from MACD crossovers.
+
+        Requires 'macd' and 'macd_signal' columns.
+        Adds column: signal ('BUY', 'SELL', 'HOLD')
+
+        :param df: DataFrame with MACD columns
+        :return: DataFrame with added 'signal' column
+        """
+        required = ['macd', 'macd_signal']
+        missing = [col for col in required if col not in df.columns]
+        if missing:
+            raise ValueError(f"Missing columns: {missing}. Calculate MACD first.")
+
+        df_result = df.copy()
+        df_result['signal'] = 'HOLD'
+
+        # Bullish crossover: MACD crosses above signal
+        bullish = (
+            (df_result['macd'].shift(1) <= df_result['macd_signal'].shift(1)) &
+            (df_result['macd'] > df_result['macd_signal'])
+        )
+        df_result.loc[bullish, 'signal'] = 'BUY'
+
+        # Bearish crossover: MACD crosses below signal
+        bearish = (
+            (df_result['macd'].shift(1) >= df_result['macd_signal'].shift(1)) &
+            (df_result['macd'] < df_result['macd_signal'])
+        )
+        df_result.loc[bearish, 'signal'] = 'SELL'
+
+        return df_result
 
     def clear_cache(self, symbol: Optional[str] = None) -> None:
         """

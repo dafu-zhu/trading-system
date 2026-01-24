@@ -214,8 +214,8 @@ class FeatureCalculator:
         Adds column: atr
         """
         high_low = df['high'] - df['low']
-        high_close = np.abs(df['high'] - df['close'].shift(1))
-        low_close = np.abs(df['low'] - df['close'].shift(1))
+        high_close = (df['high'] - df['close'].shift(1)).abs()
+        low_close = (df['low'] - df['close'].shift(1)).abs()
         true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
         df['atr'] = true_range.rolling(window=window).mean()
 
@@ -228,38 +228,3 @@ class FeatureCalculator:
         """
         df['returns'] = df['close'].pct_change()
         df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
-
-    @staticmethod
-    def generate_macd_signals(df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Generate trading signals from MACD crossovers.
-
-        Requires 'macd' and 'macd_signal' columns.
-        Adds column: signal ('BUY', 'SELL', 'HOLD')
-
-        :param df: DataFrame with MACD columns
-        :return: DataFrame with added 'signal' column
-        """
-        required = ['macd', 'macd_signal']
-        missing = [col for col in required if col not in df.columns]
-        if missing:
-            raise ValueError(f"Missing columns: {missing}. Call add_macd() first.")
-
-        df_result = df.copy()
-        df_result['signal'] = 'HOLD'
-
-        # Bullish crossover: MACD crosses above signal
-        bullish = (
-            (df_result['macd'].shift(1) <= df_result['macd_signal'].shift(1)) &
-            (df_result['macd'] > df_result['macd_signal'])
-        )
-        df_result.loc[bullish, 'signal'] = 'BUY'
-
-        # Bearish crossover: MACD crosses below signal
-        bearish = (
-            (df_result['macd'].shift(1) >= df_result['macd_signal'].shift(1)) &
-            (df_result['macd'] < df_result['macd_signal'])
-        )
-        df_result.loc[bearish, 'signal'] = 'SELL'
-
-        return df_result
