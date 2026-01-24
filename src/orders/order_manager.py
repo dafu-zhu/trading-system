@@ -24,7 +24,7 @@ class OrderManager:
         """
         try:
             symbol_pos = portfolio.get_position(order.symbol)[0]
-        except ValueError as e:
+        except ValueError:
             new_pos = Position(order.symbol, order.qty, order.price)
             portfolio.add_position(new_pos, portfolio.root)
             symbol_pos = portfolio.get_position(order.symbol)[0]

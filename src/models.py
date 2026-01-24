@@ -1,9 +1,13 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 import datetime
 from abc import abstractmethod, ABC
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Sequence, Callable, TYPE_CHECKING
 from enum import Enum
 from orders.order import Order
+
+if TYPE_CHECKING:
+    from config.trading_config import SymbolConfig, DataType, AssetType
 
 
 class OrderSide(Enum):
@@ -303,6 +307,29 @@ class DataGateway(ABC):
         pass
 
     @abstractmethod
+    def stream_realtime(
+        self,
+        symbols: list[str] | list[SymbolConfig],
+        callback: Callable[[MarketDataPoint], None],
+        data_type: DataType = DataType.TRADES,
+        default_asset_type: AssetType = AssetType.STOCK,
+    ) -> None:
+        """
+        Stream real-time market data (blocking).
+
+        Args:
+            symbols: List of symbols or SymbolConfig objects
+            callback: Function called with each MarketDataPoint
+            data_type: Type of data to stream (TRADES or QUOTES)
+        """
+        pass
+
+    @abstractmethod
+    def stop_streaming(self) -> None:
+        """Stop streaming market data."""
+        pass
+
+    @abstractmethod
     def get_market_calendar(
         self,
         start: datetime.date,
@@ -313,6 +340,28 @@ class DataGateway(ABC):
         :param start: Start date
         :param end: End date
         :return: List of MarketCalendarDay objects
+        """
+        pass
+
+    @abstractmethod
+    def replay_historical(
+        self,
+        symbols: Sequence[str | SymbolConfig],
+        callback: Callable[[MarketDataPoint], None],
+        timeframe: Timeframe,
+        start: datetime.datetime,
+        end: datetime.datetime,
+        speed: float = 1.0,
+    ) -> None:
+        """
+        Replay historical data as simulated real-time stream.
+
+        :param symbols: List of symbols (strings or SymbolConfig) to replay
+        :param callback: Function called with each MarketDataPoint
+        :param timeframe: Bar timeframe
+        :param start: Start datetime
+        :param end: End datetime
+        :param speed: Replay speed multiplier (1.0 = real-time, 0 = instant)
         """
         pass
 

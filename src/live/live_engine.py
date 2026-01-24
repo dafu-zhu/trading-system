@@ -16,6 +16,7 @@ from config.trading_config import LiveEngineConfig, DataType, SymbolConfig, Asse
 from gateway.alpaca_data_gateway import AlpacaDataGateway
 from gateway.alpaca_trading_gateway import AlpacaTradingGateway
 from models import (
+    DataGateway,
     TradingGateway,
     Strategy,
     PositionSizer,
@@ -91,7 +92,7 @@ class LiveTradingEngine:
         config: LiveEngineConfig,
         strategy: Strategy,
         position_sizer: Optional[PositionSizer] = None,
-        data_gateway: Optional[AlpacaDataGateway] = None,
+        data_gateway: Optional[DataGateway] = None,
         trading_gateway: Optional[TradingGateway] = None,
     ):
         """
@@ -165,7 +166,7 @@ class LiveTradingEngine:
             "ENABLED" if config.enable_stop_loss else "DISABLED",
         )
 
-    def _signal_handler(self, signum, frame) -> None:
+    def _signal_handler(self, signum, _frame) -> None:
         """Handle shutdown signals gracefully."""
         logger.warning("Received signal %d. Shutting down gracefully...", signum)
         self._shutdown_requested = True
@@ -339,11 +340,8 @@ class LiveTradingEngine:
             quantity = self.positions[symbol].quantity
         else:
             # BUY: use position sizer
-            outer_self = self
-            class MockPortfolio:
-                def get_total_value(self):
-                    return outer_self._get_portfolio_value()
-            quantity = self.position_sizer.calculate_qty(signal_dict, MockPortfolio(), price)
+            mock_portfolio = type("Portfolio", (), {"get_total_value": self._get_portfolio_value})()
+            quantity = self.position_sizer.calculate_qty(signal_dict, mock_portfolio, price)
 
         if quantity and quantity <= 0:
             logger.debug("Position sizer returned 0 quantity for %s", symbol)
@@ -704,6 +702,36 @@ class LiveTradingEngine:
         except Exception as e:
             logger.error("Failed to sync positions: %s", e)
 
+    def _run_historical_replay(
+        self,
+        symbol_configs: list,
+        timeframe: Timeframe,
+        start: datetime,
+        end: datetime,
+    ) -> None:
+        """Run historical replay, falling back to Alpaca if gateway doesn't support it."""
+        replay_args = {
+            "symbols": symbol_configs,
+            "callback": self._on_market_data,
+            "timeframe": timeframe,
+            "start": start,
+            "end": end,
+            "speed": 0,
+        }
+        try:
+            self.data_gateway.replay_historical(**replay_args)
+        except NotImplementedError:
+            logger.warning(
+                "%s doesn't support replay. Falling back to AlpacaDataGateway.",
+                type(self.data_gateway).__name__,
+            )
+            alpaca_gateway = AlpacaDataGateway()
+            alpaca_gateway.connect()
+            try:
+                alpaca_gateway.replay_historical(**replay_args)
+            finally:
+                alpaca_gateway.disconnect()
+
     def run(
         self,
         symbols: list[str],
@@ -774,14 +802,7 @@ class LiveTradingEngine:
             if self.config.trading.dry_run and replay_start and replay_end:
                 # Historical replay mode
                 logger.info("Starting historical replay from %s to %s...", replay_start, replay_end)
-                self.data_gateway.replay_historical(
-                    symbols=symbol_configs,
-                    callback=self._on_market_data,
-                    timeframe=replay_timeframe,
-                    start=replay_start,
-                    end=replay_end,
-                    speed=0,  # Instant replay
-                )
+                self._run_historical_replay(symbol_configs, replay_timeframe, replay_start, replay_end)
             else:
                 # Real-time streaming
                 logger.info("Starting market data stream...")

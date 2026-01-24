@@ -3,8 +3,8 @@ Simulate execution by feed in historical data through the gateway,
 generate signals and use matching engine to simulate order status
 """
 import logging
-from models import Gateway, Strategy, MatchingEngine, MarketDataPoint
-from typing import List, Dict, Optional
+from models import Gateway, Strategy, MatchingEngine
+from typing import Dict, Optional
 from orders.order import Order, OrderSide, OrderState
 from orders.order_manager import OrderManager
 from orders.order_book import OrderBook

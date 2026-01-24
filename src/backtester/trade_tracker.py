@@ -2,7 +2,7 @@
 Trade Tracker: Converts order fills into complete round-trip trades.
 Matches entry and exit orders to calculate PnL and track trade lifecycle.
 """
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime
 from collections import defaultdict
 from orders.order import OrderSide

@@ -8,12 +8,10 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from models import DataGateway, Timeframe, Bar, MarketDataPoint
-from strategy.macd_strategy import MACDStrategy
+from models import DataGateway, Timeframe, Bar, MarketDataPoint, Strategy
 from orders.order import Order, OrderState
 from orders.order import OrderSide as LegacyOrderSide
 from orders.order_manager import OrderManager
-from orders.order_book import OrderBook
 from orders.matching_engine import DeterministicMatchingEngine
 from portfolio import Portfolio, Position
 from backtester.position_sizer import PositionSizer, PercentSizer
@@ -34,7 +32,7 @@ class BacktestEngine:
     def __init__(
         self,
         gateway: DataGateway,
-        strategy: MACDStrategy,
+        strategy: Strategy,
         init_capital: float = 100000.0,
         position_sizer: Optional[PositionSizer] = None,
         slippage_bps: float = 0.0,
@@ -57,7 +55,6 @@ class BacktestEngine:
         # Components
         self._portfolio = Portfolio(init_capital)
         self._manager = OrderManager()
-        self._book = OrderBook()
         self._matching = DeterministicMatchingEngine(
             fill_at="close",
             max_volume_pct=max_volume_pct,
@@ -115,7 +112,7 @@ class BacktestEngine:
             # Process actionable signals (BUY/SELL)
             if action in ('BUY', 'SELL'):
                 side = LegacyOrderSide.BUY if action == 'BUY' else LegacyOrderSide.SELL
-                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close) # type: ignore
                 if qty > 0:
                     self._process_order(bar, symbol, side, qty)
 
@@ -152,7 +149,7 @@ class BacktestEngine:
 
         # Acknowledge and match
         order.transition(OrderState.ACKED)
-        report = self._matching.match(order, self._book)
+        report = self._matching.match(order)
         self._reports.append(report)
 
         # Process fill

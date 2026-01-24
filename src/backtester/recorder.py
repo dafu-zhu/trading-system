@@ -8,7 +8,7 @@ Records all events during backtest execution including:
 - Trade history
 """
 import pandas as pd
-from typing import List, Dict, Optional
+from typing import List, Dict
 from datetime import datetime
 from dataclasses import dataclass, asdict, field
 from orders.order import Order, OrderSide, OrderState

@@ -55,7 +55,7 @@ class TradingConfig:
         if self.api_secret is None:
             self.api_secret = os.getenv("ALPACA_API_SECRET")
         if os.getenv("ALPACA_BASE_URL"):
-            self.base_url = os.getenv("ALPACA_BASE_URL")
+            self.base_url = os.getenv("ALPACA_BASE_URL") # type: ignore
 
     def validate(self) -> tuple[bool, str]:
         """
@@ -91,7 +91,7 @@ class RiskConfig:
     max_position_size: float = 1000.0
     max_position_value: float = 100_000.0
     max_total_exposure: float = 500_000.0
-    max_orders_per_minute: int = 100
+    max_orders_per_minute: int = 200
     max_orders_per_symbol_per_minute: int = 20
     min_cash_buffer: float = 1000.0
 

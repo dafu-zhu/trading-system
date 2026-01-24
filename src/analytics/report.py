@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from datetime import datetime
 import pandas as pd
-from analytics.metrics import PerformanceMetrics, format_metrics
+from analytics.metrics import PerformanceMetrics
 from analytics.visualizer import BacktestVisualizer
 
 

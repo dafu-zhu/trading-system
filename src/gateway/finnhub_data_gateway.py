@@ -16,7 +16,7 @@ from typing import Optional, Callable
 import websockets
 
 from models import DataGateway, Bar, Timeframe, MarketCalendarDay, MarketDataPoint
-from config.trading_config import DataType, SymbolConfig
+from config.trading_config import DataType, SymbolConfig, AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class FinnhubDataGateway(DataGateway):
                 while not self._stop_streaming_flag:
                     try:
                         message = await asyncio.wait_for(ws.recv(), timeout=30)
-                        await self._handle_message(message)
+                        await self._handle_message(str(message))
                     except asyncio.TimeoutError:
                         # No message in 30s, connection still alive
                         pass
@@ -170,7 +170,7 @@ class FinnhubDataGateway(DataGateway):
         symbols: list[str] | list[SymbolConfig],
         callback: Callable[[MarketDataPoint], None],
         data_type: DataType = DataType.TRADES,
-        **kwargs,
+        default_asset_type: AssetType = AssetType.STOCK
     ) -> None:
         """
         Stream real-time market data (blocking).
@@ -256,7 +256,9 @@ class FinnhubDataGateway(DataGateway):
     def get_market_calendar(self, start, end) -> list[MarketCalendarDay]:
         """Not implemented - use Alpaca for market calendar."""
         return []
-
-    def get_latest_bar(self, symbol: str, timeframe: Timeframe) -> Optional[Bar]:
-        """Not implemented."""
-        return None
+    
+    def replay_historical(self, symbols, callback, timeframe, start, end, speed=1.0):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support historical replay. "
+            "Use --data-source alpaca for dry-run replay mode."
+        )
