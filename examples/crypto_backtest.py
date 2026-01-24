@@ -51,23 +51,25 @@ def main():
     # Initialize components
     logger.info("Initializing data gateway (Alpaca crypto)...")
     data_gateway = AlpacaDataGateway()
+    data_gateway.connect()
 
     logger.info("Initializing MACD strategy...")
     strategy = MACDStrategy(
-        symbols=[symbol],
+        gateway=data_gateway,
+        timeframe=timeframe,
         fast_period=12,
         slow_period=26,
         signal_period=9,
     )
 
     logger.info("Initializing position sizer...")
-    position_sizer = PercentSizer(percent=position_size_pct)
+    position_sizer = PercentSizer(equity_percent=position_size_pct)
 
     logger.info("Initializing backtest engine...")
     engine = BacktestEngine(
-        data_gateway=data_gateway,
+        gateway=data_gateway,
         strategy=strategy,
-        initial_capital=initial_capital,
+        init_capital=initial_capital,
         position_sizer=position_sizer,
         slippage_bps=20,  # Higher slippage for crypto
     )

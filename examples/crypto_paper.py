@@ -250,17 +250,19 @@ def main():
     # Initialize components
     logger.info("Initializing data gateway...")
     data_gateway = AlpacaDataGateway()
+    data_gateway.connect()
 
     logger.info("Initializing trading gateway (PAPER mode)...")
     # Paper mode is default (uses paper-api.alpaca.markets)
     trading_gateway = AlpacaTradingGateway()
+    trading_gateway.connect()
 
     logger.info("Initializing Momentum strategy...")
     strategy = MomentumStrategy(
-        symbols=[symbol],
         lookback=5,
-        threshold=0.003,  # 0.3% threshold for more signals
-        cooldown=2,
+        buy_threshold=0.003,  # 0.3% threshold for more signals
+        sell_threshold=-0.003,
+        cooldown_ticks=2,
     )
 
     logger.info("Initializing paper trading engine...")

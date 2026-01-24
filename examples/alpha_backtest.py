@@ -247,6 +247,7 @@ def main():
     # Initialize components
     logger.info("Initializing data gateway...")
     data_gateway = AlpacaDataGateway()
+    data_gateway.connect()
 
     logger.info("Initializing alpha loader...")
     alpha_loader = AlphaLoader(AlphaLoaderConfig(

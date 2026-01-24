@@ -141,10 +141,12 @@ def main():
     # Initialize components
     logger.info("Initializing data gateway...")
     data_gateway = AlpacaDataGateway()
+    data_gateway.connect()
 
     logger.info("Initializing MACD strategy...")
     strategy = MACDStrategy(
-        symbols=[symbol],
+        gateway=data_gateway,
+        timeframe=timeframe,
         fast_period=12,
         slow_period=26,
         signal_period=9,

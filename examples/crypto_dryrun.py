@@ -189,13 +189,14 @@ def main():
     # Initialize components
     logger.info("Initializing data gateway...")
     data_gateway = AlpacaDataGateway()
+    data_gateway.connect()
 
     logger.info("Initializing Momentum strategy...")
     strategy = MomentumStrategy(
-        symbols=[symbol],
         lookback=10,
-        threshold=0.005,  # 0.5% momentum threshold
-        cooldown=5,  # 5 bars cooldown between trades
+        buy_threshold=0.005,  # 0.5% momentum threshold
+        sell_threshold=-0.005,
+        cooldown_ticks=5,  # 5 bars cooldown between trades
     )
 
     logger.info("Initializing dry-run engine...")
