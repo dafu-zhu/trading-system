@@ -130,15 +130,12 @@ Extensible framework for computing alpha weights dynamically. Allows strategies 
 | `AlphaWeightModel` | Abstract base class |
 | `EqualWeightModel` | 1/N weight to each alpha (default) |
 | `FixedWeightModel` | Static weights from config |
-| `ICWeightModel` | Weight by Information Coefficient (placeholder) |
-| `OptimizedWeightModel` | Mean-variance optimized (placeholder) |
 
 **Usage:**
 ```python
 from strategy.alpha_weights import (
     EqualWeightModel,
     FixedWeightModel,
-    ICWeightModel,
     create_weight_model,
 )
 
@@ -153,13 +150,12 @@ model = FixedWeightModel({"momentum": 0.6, "value": 0.4})
 # Factory function
 model = create_weight_model("equal")
 model = create_weight_model("fixed", {"weights": {"a": 0.5, "b": 0.5}})
-model = create_weight_model("ic", {"lookback_days": 60, "min_ic": 0.02})
 ```
 
 **Integration with AlphaStrategy:**
 ```python
 from strategy.alpha_strategy import AlphaStrategy
-from strategy.alpha_weights import EqualWeightModel, ICWeightModel
+from strategy.alpha_weights import EqualWeightModel
 
 # Use equal weights (ignores config weights)
 strategy = AlphaStrategy(
@@ -167,9 +163,6 @@ strategy = AlphaStrategy(
     config=config,
     weight_model=EqualWeightModel(),
 )
-
-# Dynamically update weight model
-strategy.set_weight_model(ICWeightModel(lookback_days=30))
 
 # Get current weights
 weights = strategy.get_current_weights()

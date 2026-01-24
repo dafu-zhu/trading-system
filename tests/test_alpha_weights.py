@@ -1,7 +1,7 @@
 """
 Tests for alpha weight models.
 
-Tests EqualWeightModel, FixedWeightModel, ICWeightModel, and factory function.
+Tests EqualWeightModel, FixedWeightModel, and factory function.
 """
 
 import pytest
@@ -10,8 +10,6 @@ from strategy.alpha_weights import (
     AlphaWeightModel,
     EqualWeightModel,
     FixedWeightModel,
-    ICWeightModel,
-    OptimizedWeightModel,
     WeightResult,
     create_weight_model,
 )
@@ -37,7 +35,6 @@ class TestWeightResult:
 
     def test_weights_tolerance(self):
         """Test WeightResult accepts small floating point errors."""
-        # Should not raise - within tolerance
         result = WeightResult(
             weights={"a": 0.333333, "b": 0.333333, "c": 0.333334}
         )
@@ -70,9 +67,9 @@ class TestEqualWeightModel:
     def test_three_alphas(self, model):
         """Test with three alphas."""
         result = model.compute_weights(["a", "b", "c"])
-        assert result.weights["a"] == pytest.approx(1/3)
-        assert result.weights["b"] == pytest.approx(1/3)
-        assert result.weights["c"] == pytest.approx(1/3)
+        assert result.weights["a"] == pytest.approx(1 / 3)
+        assert result.weights["b"] == pytest.approx(1 / 3)
+        assert result.weights["c"] == pytest.approx(1 / 3)
 
     def test_empty_alphas_raises(self, model):
         """Test empty alphas raises error."""
@@ -116,7 +113,6 @@ class TestFixedWeightModel:
         """Test subset of alphas is renormalized."""
         model = FixedWeightModel({"a": 0.5, "b": 0.3, "c": 0.2})
         result = model.compute_weights(["a", "b"])
-        # Should renormalize 0.5 + 0.3 = 0.8 -> 1.0
         assert result.weights["a"] == pytest.approx(0.5 / 0.8)
         assert result.weights["b"] == pytest.approx(0.3 / 0.8)
 
@@ -125,60 +121,6 @@ class TestFixedWeightModel:
         model = FixedWeightModel({"a": 1.0})
         with pytest.raises(ValueError, match="At least one alpha"):
             model.compute_weights([])
-
-
-class TestICWeightModel:
-    """Tests for ICWeightModel."""
-
-    @pytest.fixture
-    def model(self):
-        """Create model instance."""
-        return ICWeightModel(lookback_days=60, min_ic=0.0)
-
-    def test_name(self, model):
-        """Test model name."""
-        assert model.name == "ic_weight"
-
-    def test_fallback_to_equal_without_data(self, model):
-        """Test falls back to equal weight without historical data."""
-        result = model.compute_weights(["a", "b"])
-        # Should fall back to equal weight
-        assert result.weights["a"] == 0.5
-        assert result.weights["b"] == 0.5
-
-    def test_fallback_with_none_alphas(self, model):
-        """Test falls back when historical_alphas is None."""
-        result = model.compute_weights(["a", "b"], historical_alphas=None)
-        assert result.weights["a"] == 0.5
-
-    def test_metadata_contains_ics(self, model):
-        """Test metadata contains IC values when data provided."""
-        # With empty historical data, still produces metadata
-        result = model.compute_weights(
-            ["a", "b"],
-            historical_alphas={"a": {}, "b": {}},
-            returns={},
-        )
-        assert "ics" in result.metadata or result.weights["a"] == 0.5
-
-
-class TestOptimizedWeightModel:
-    """Tests for OptimizedWeightModel."""
-
-    @pytest.fixture
-    def model(self):
-        """Create model instance."""
-        return OptimizedWeightModel(lookback_days=252)
-
-    def test_name(self, model):
-        """Test model name."""
-        assert model.name == "optimized_weight"
-
-    def test_fallback_to_equal_without_data(self, model):
-        """Test falls back to equal weight without data."""
-        result = model.compute_weights(["a", "b"])
-        assert result.weights["a"] == 0.5
-        assert result.weights["b"] == 0.5
 
 
 class TestCreateWeightModel:
@@ -198,19 +140,6 @@ class TestCreateWeightModel:
         """Test fixed model without weights raises."""
         with pytest.raises(ValueError, match="requires 'weights'"):
             create_weight_model("fixed", {})
-
-    def test_create_ic(self):
-        """Test creating IC weight model."""
-        model = create_weight_model("ic", {"lookback_days": 30, "min_ic": 0.02})
-        assert isinstance(model, ICWeightModel)
-        assert model.lookback_days == 30
-        assert model.min_ic == 0.02
-
-    def test_create_optimized(self):
-        """Test creating optimized weight model."""
-        model = create_weight_model("optimized", {"regularization": 0.2})
-        assert isinstance(model, OptimizedWeightModel)
-        assert model.regularization == 0.2
 
     def test_unknown_type_raises(self):
         """Test unknown model type raises."""
@@ -241,7 +170,7 @@ class TestAlphaWeightModelABC:
         """Test subclass must implement name property."""
 
         class IncompleteModel(AlphaWeightModel):
-            def compute_weights(self, alpha_names, **kwargs):
+            def compute_weights(self, alpha_names):
                 return WeightResult(weights={"a": 1.0})
 
         with pytest.raises(TypeError):
