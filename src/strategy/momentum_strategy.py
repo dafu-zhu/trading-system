@@ -8,7 +8,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Optional
 
-from models import MarketDataPoint, Strategy
+from models import MarketDataPoint, MarketSnapshot, Strategy
 
 
 @dataclass
@@ -61,15 +61,36 @@ class MomentumStrategy(Strategy):
         # Last action per symbol (to alternate)
         self._last_action: dict[str, str] = {}
 
-    def generate_signals(self, tick: MarketDataPoint) -> list:
+    def generate_signals(self, snapshot: MarketSnapshot) -> list:
         """
-        Generate signal based on price momentum.
+        Generate signals for all symbols in snapshot based on price momentum.
+
+        Args:
+            snapshot: Market snapshot with prices for all tracked symbols
+
+        Returns:
+            List of signal dicts for each symbol
+        """
+        signals = []
+        for symbol, price in snapshot.prices.items():
+            tick = MarketDataPoint(
+                timestamp=snapshot.timestamp,
+                symbol=symbol,
+                price=price,
+            )
+            signal = self._generate_signal_for_tick(tick)
+            signals.append(signal)
+        return signals
+
+    def _generate_signal_for_tick(self, tick: MarketDataPoint) -> dict:
+        """
+        Generate signal for a single tick based on price momentum.
 
         Args:
             tick: Market data point
 
         Returns:
-            List with single signal dict
+            Signal dict
         """
         symbol = tick.symbol
         price = tick.price
@@ -89,7 +110,7 @@ class MomentumStrategy(Strategy):
 
         # Need enough history
         if len(history) < self.lookback + 1:
-            return [self._make_signal("HOLD", tick, 0.0)]
+            return self._make_signal("HOLD", tick, 0.0)
 
         # Calculate momentum (price change %)
         old_price = history[0]
@@ -97,7 +118,7 @@ class MomentumStrategy(Strategy):
 
         # Check cooldown
         if self._cooldown[symbol] > 0:
-            return [self._make_signal("HOLD", tick, momentum)]
+            return self._make_signal("HOLD", tick, momentum)
 
         # Generate signal based on momentum and last action
         action = "HOLD"
@@ -111,7 +132,7 @@ class MomentumStrategy(Strategy):
             self._last_action[symbol] = "SELL"
             self._cooldown[symbol] = self.cooldown_ticks
 
-        return [self._make_signal(action, tick, momentum)]
+        return self._make_signal(action, tick, momentum)
 
     @staticmethod
     def _make_signal(action: str, tick: MarketDataPoint, momentum: float) -> dict:

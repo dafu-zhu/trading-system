@@ -10,7 +10,7 @@ from datetime import datetime
 from unittest.mock import Mock, MagicMock
 
 from strategy.macd_strategy import MACDStrategy
-from models import DataGateway, Timeframe, Bar, MarketDataPoint
+from models import DataGateway, Timeframe, Bar, MarketDataPoint, MarketSnapshot
 
 
 class TestMACDStrategy:
@@ -110,24 +110,24 @@ class TestMACDStrategy:
         assert df.empty
 
     def test_generate_signals(self, strategy, sample_bars):
-        """Test signal generation for a tick."""
+        """Test signal generation for a snapshot."""
         # First load data
         strategy.get_data("AAPL", datetime(2024, 1, 1), datetime(2024, 2, 15))
 
-        # Generate signal for a known timestamp
-        tick = MarketDataPoint(
+        # Generate signal for a known timestamp using MarketSnapshot
+        snapshot = MarketSnapshot(
             timestamp=sample_bars[30].timestamp,
-            symbol="AAPL",
-            price=sample_bars[30].close,
+            prices={"AAPL": sample_bars[30].close},
+            bars={"AAPL": sample_bars[30]},
         )
 
-        signals = strategy.generate_signals(tick)
+        signals = strategy.generate_signals(snapshot)
 
         assert len(signals) == 1
         assert signals[0]['symbol'] == 'AAPL'
         assert signals[0]['action'] in ['BUY', 'SELL', 'HOLD']
-        assert signals[0]['timestamp'] == tick.timestamp
-        assert signals[0]['price'] == tick.price
+        assert signals[0]['timestamp'] == snapshot.timestamp
+        assert signals[0]['price'] == sample_bars[30].close
 
     def test_generate_signals_unknown_timestamp(self, strategy, sample_bars):
         """Test signal generation for timestamp not in data."""
@@ -135,13 +135,13 @@ class TestMACDStrategy:
         strategy.get_data("AAPL", datetime(2024, 1, 1), datetime(2024, 2, 15))
 
         # Generate signal for timestamp not in data (between bars)
-        tick = MarketDataPoint(
+        snapshot = MarketSnapshot(
             timestamp=datetime(2024, 1, 15, 12, 0),  # Mid-day, not in data
-            symbol="AAPL",
-            price=105.0,
+            prices={"AAPL": 105.0},
+            bars=None,
         )
 
-        signals = strategy.generate_signals(tick)
+        signals = strategy.generate_signals(snapshot)
 
         assert len(signals) == 1
         # Should find closest prior timestamp
@@ -149,13 +149,13 @@ class TestMACDStrategy:
 
     def test_generate_signals_loads_data_if_needed(self, strategy, mock_gateway):
         """Test that generate_signals loads data if not cached."""
-        tick = MarketDataPoint(
+        snapshot = MarketSnapshot(
             timestamp=datetime(2024, 1, 15, 9, 30),
-            symbol="AAPL",
-            price=105.0,
+            prices={"AAPL": 105.0},
+            bars=None,
         )
 
-        signals = strategy.generate_signals(tick)
+        signals = strategy.generate_signals(snapshot)
 
         # Should have called gateway to load data
         mock_gateway.fetch_bars.assert_called()

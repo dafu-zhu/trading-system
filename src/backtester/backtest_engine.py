@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from models import DataGateway, Timeframe, Bar, MarketDataPoint, Strategy, OrderSide
+from models import DataGateway, Timeframe, Bar, MarketSnapshot, Strategy, OrderSide
 from orders.order import Order, OrderState
 from orders.order_manager import OrderManager
 from orders.matching_engine import DeterministicMatchingEngine
@@ -102,9 +102,13 @@ class BacktestEngine:
                 self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
                 first_bar = False
 
-            # Generate signal from strategy
-            tick = MarketDataPoint(timestamp=bar.timestamp, symbol=bar.symbol, price=bar.close)
-            signals = self._strategy.generate_signals(tick)
+            # Generate signal from strategy using MarketSnapshot
+            snapshot = MarketSnapshot(
+                timestamp=bar.timestamp,
+                prices={bar.symbol: bar.close},
+                bars={bar.symbol: bar},
+            )
+            signals = self._strategy.generate_signals(snapshot)
             signal = signals[0] if signals else None
             action = signal.get('action', 'HOLD') if signal else 'HOLD'
 
@@ -122,6 +126,140 @@ class BacktestEngine:
         logger.info(f"Backtest complete: processed {bar_count} bars")
 
         return self._generate_results(symbol, start, end, bar_count)
+
+    def run_multi(
+        self,
+        symbols: list[str],
+        timeframe: Timeframe,
+        start: datetime,
+        end: datetime,
+    ) -> dict:
+        """
+        Run backtest for multiple symbols simultaneously.
+
+        Fetches bars for all symbols, merges by timestamp, builds MarketSnapshot
+        for each timestamp, and processes signals across all symbols.
+
+        :param symbols: List of stock symbols
+        :param timeframe: Bar timeframe
+        :param start: Start datetime
+        :param end: End datetime
+        :return: Backtest results dictionary
+        """
+        if not self._gateway.is_connected():
+            raise RuntimeError("Gateway not connected. Call gateway.connect() first.")
+
+        logger.info(f"Starting multi-symbol backtest: {symbols} from {start.date()} to {end.date()}")
+
+        # Fetch all bars for all symbols
+        all_bars: dict[str, list[Bar]] = {}
+        for symbol in symbols:
+            bars_list = list(self._gateway.stream_bars(symbol, timeframe, start, end))
+            all_bars[symbol] = bars_list
+            logger.info(f"  Loaded {len(bars_list)} bars for {symbol}")
+
+        # Collect all unique timestamps and sort
+        timestamps = sorted(set(
+            bar.timestamp for bars in all_bars.values() for bar in bars
+        ))
+
+        if not timestamps:
+            logger.warning("No bars found for any symbol")
+            return self._generate_results_multi(symbols, start, end, 0)
+
+        # Create index lookup for faster bar retrieval
+        bar_index: dict[str, dict[datetime, Bar]] = {
+            symbol: {bar.timestamp: bar for bar in bars}
+            for symbol, bars in all_bars.items()
+        }
+
+        first_snapshot = True
+        bar_count = 0
+
+        for ts in timestamps:
+            bar_count += 1
+
+            # Build snapshot with all available prices at this timestamp
+            prices: dict[str, float] = {}
+            bars: dict[str, Bar] = {}
+
+            for symbol in symbols:
+                bar = bar_index[symbol].get(ts)
+                if bar:
+                    prices[symbol] = bar.close
+                    bars[symbol] = bar
+                    self._current_prices[symbol] = bar.close
+                    self._matching.set_current_bar(bar)
+
+            if not prices:
+                continue  # Skip if no data for any symbol at this timestamp
+
+            # Record initial equity on first snapshot
+            if first_snapshot:
+                self._equity_tracker.record_tick(ts, self._portfolio.get_total_value())
+                first_snapshot = False
+
+            # Build MarketSnapshot
+            snapshot = MarketSnapshot(timestamp=ts, prices=prices, bars=bars)
+
+            # Generate signals from strategy
+            signals = self._strategy.generate_signals(snapshot)
+
+            # Process each actionable signal
+            for signal in signals:
+                if signal is None:
+                    continue
+                action = signal.get('action', 'HOLD')
+                symbol = signal.get('symbol')
+
+                if action in ('BUY', 'SELL') and symbol and symbol in bars:
+                    side = OrderSide.BUY if action == 'BUY' else OrderSide.SELL
+                    bar = bars[symbol]
+                    qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                    if qty > 0:
+                        self._matching.set_current_bar(bar)
+                        self._process_order(bar, symbol, side, qty)
+
+            # Update portfolio and record equity
+            self._mark_to_market()
+            self._equity_tracker.record_tick(ts, self._portfolio.get_total_value())
+
+        logger.info(f"Multi-symbol backtest complete: processed {bar_count} timestamps")
+
+        return self._generate_results_multi(symbols, start, end, bar_count)
+
+    def _generate_results_multi(
+        self,
+        symbols: list[str],
+        start: datetime,
+        end: datetime,
+        bar_count: int,
+    ) -> dict:
+        """Generate backtest results summary for multi-symbol run."""
+        equity_series = self._equity_tracker.get_equity_series()
+        equity_curve = [
+            {'timestamp': ts, 'value': val}
+            for ts, val in zip(equity_series.index, equity_series.values)
+        ] if not equity_series.empty else []
+
+        final_value = self._portfolio.get_total_value()
+        total_return = (final_value - self._init_capital) / self._init_capital * 100
+
+        trades = self._trade_tracker.completed_trades
+
+        return {
+            'symbols': symbols,
+            'start': start,
+            'end': end,
+            'bar_count': bar_count,
+            'initial_capital': self._init_capital,
+            'final_value': final_value,
+            'total_return_pct': total_return,
+            'total_trades': len(trades),
+            'equity_curve': equity_curve,
+            'trades': trades,
+            'reports': self._reports,
+        }
 
     def _process_order(
         self,

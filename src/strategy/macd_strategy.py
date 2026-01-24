@@ -10,7 +10,7 @@ from typing import Optional
 import pandas as pd
 
 from data_loader.features.calculator import FeatureCalculator, FeatureParams
-from models import DataGateway, MarketDataPoint, Strategy, Timeframe
+from models import DataGateway, MarketDataPoint, MarketSnapshot, Strategy, Timeframe
 
 
 class MACDStrategy(Strategy):
@@ -91,31 +91,49 @@ class MACDStrategy(Strategy):
 
         return df
 
-    def generate_signals(self, tick: MarketDataPoint) -> list:
+    def generate_signals(self, snapshot: MarketSnapshot) -> list:
         """
-        Generate signals for a single tick using pre-calculated MACD data.
+        Generate signals for all symbols in snapshot using pre-calculated MACD data.
+
+        :param snapshot: Market snapshot with prices for all tracked symbols
+        :return: List of signal dicts for each symbol
+        """
+        signals = []
+        for symbol, price in snapshot.prices.items():
+            tick = MarketDataPoint(
+                timestamp=snapshot.timestamp,
+                symbol=symbol,
+                price=price,
+            )
+            signal = self._generate_signal_for_tick(tick)
+            signals.append(signal)
+        return signals
+
+    def _generate_signal_for_tick(self, tick: MarketDataPoint) -> dict:
+        """
+        Generate signal for a single tick using pre-calculated MACD data.
 
         :param tick: Market data point with timestamp, symbol, and price
-        :return: List with single signal dict
+        :return: Signal dict
         """
         if tick.symbol not in self._data_cache:
             self.get_data(tick.symbol)
 
         df = self._data_cache.get(tick.symbol)
         if df is None or df.empty:
-            return [self._make_signal('HOLD', tick)]
+            return self._make_signal('HOLD', tick)
 
         # Find exact timestamp match or closest prior
         if tick.timestamp in df.index:
             signal = str(df.loc[tick.timestamp, 'signal'])
-            return [self._make_signal(signal, tick)]
+            return self._make_signal(signal, tick)
 
         prior = df[df.index <= tick.timestamp]
         if prior.empty:
-            return [self._make_signal('HOLD', tick)]
+            return self._make_signal('HOLD', tick)
 
         signal = str(prior.iloc[-1]['signal'])
-        return [self._make_signal(signal, tick)]
+        return self._make_signal(signal, tick)
 
     def generate_signals_batch(
         self,

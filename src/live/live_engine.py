@@ -21,6 +21,7 @@ from models import (
     Strategy,
     PositionSizer,
     MarketDataPoint,
+    MarketSnapshot,
     OrderSide,
     OrderType,
     Timeframe,
@@ -272,8 +273,15 @@ class LiveTradingEngine:
                     logger.warning("CIRCUIT BREAKER ACTIVE - Trading halted")
                 return
 
-            # Generate strategy signals
-            signals = self.strategy.generate_signals(tick)
+            # Build MarketSnapshot with all current prices
+            snapshot = MarketSnapshot(
+                timestamp=tick.timestamp,
+                prices=dict(self.current_prices),
+                bars=None,  # No bar data in real-time tick stream
+            )
+
+            # Generate strategy signals from snapshot
+            signals = self.strategy.generate_signals(snapshot)
 
             if signals:
                 for signal_dict in signals:
