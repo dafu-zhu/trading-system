@@ -9,6 +9,7 @@ The alpha-strategy feature enables **cross-sectional trading** - ranking multipl
 **Key capabilities:**
 - Multi-symbol backtesting and live trading
 - Alpha signal loading with TTL-based caching
+- **Dynamic alpha weighting** via pluggable weight models
 - Cross-sectional ranking and threshold-based signal generation
 - TWAP execution with rate limiting
 - Execution quality monitoring (VWAP, slippage)
@@ -117,6 +118,81 @@ alphas = loader.get_alpha_for_date("momentum_20d", ["AAPL", "MSFT"], date)
 
 ---
 
+### Alpha Weight Models
+
+#### `src/strategy/alpha_weights.py`
+
+Extensible framework for computing alpha weights dynamically. Allows strategies to use different weighting schemes without code changes.
+
+**Classes:**
+| Class | Description |
+|-------|-------------|
+| `AlphaWeightModel` | Abstract base class |
+| `EqualWeightModel` | 1/N weight to each alpha (default) |
+| `FixedWeightModel` | Static weights from config |
+| `ICWeightModel` | Weight by Information Coefficient (placeholder) |
+| `OptimizedWeightModel` | Mean-variance optimized (placeholder) |
+
+**Usage:**
+```python
+from strategy.alpha_weights import (
+    EqualWeightModel,
+    FixedWeightModel,
+    ICWeightModel,
+    create_weight_model,
+)
+
+# Equal weight (simplest)
+model = EqualWeightModel()
+result = model.compute_weights(["momentum", "value", "quality"])
+# result.weights = {"momentum": 0.333, "value": 0.333, "quality": 0.333}
+
+# Fixed weights
+model = FixedWeightModel({"momentum": 0.6, "value": 0.4})
+
+# Factory function
+model = create_weight_model("equal")
+model = create_weight_model("fixed", {"weights": {"a": 0.5, "b": 0.5}})
+model = create_weight_model("ic", {"lookback_days": 60, "min_ic": 0.02})
+```
+
+**Integration with AlphaStrategy:**
+```python
+from strategy.alpha_strategy import AlphaStrategy
+from strategy.alpha_weights import EqualWeightModel, ICWeightModel
+
+# Use equal weights (ignores config weights)
+strategy = AlphaStrategy(
+    symbols=["AAPL", "MSFT"],
+    config=config,
+    weight_model=EqualWeightModel(),
+)
+
+# Dynamically update weight model
+strategy.set_weight_model(ICWeightModel(lookback_days=30))
+
+# Get current weights
+weights = strategy.get_current_weights()
+print(weights.weights)  # {"momentum_20d": 0.5, "mean_reversion": 0.5}
+```
+
+**Extending with Custom Models:**
+```python
+from strategy.alpha_weights import AlphaWeightModel, WeightResult
+
+class MyCustomWeightModel(AlphaWeightModel):
+    @property
+    def name(self) -> str:
+        return "custom"
+
+    def compute_weights(self, alpha_names, **kwargs) -> WeightResult:
+        # Your custom weighting logic
+        weights = {name: 1.0 / len(alpha_names) for name in alpha_names}
+        return WeightResult(weights=weights, metadata={"model": self.name})
+```
+
+---
+
 ### Alpha Strategy
 
 #### `src/strategy/alpha_strategy.py`
@@ -128,12 +204,13 @@ Cross-sectional strategy that ranks symbols by combined alpha and generates sign
 - `AlphaStrategy` - Implements `Strategy` ABC
 
 **Signal Logic:**
-1. Load alphas for each symbol
-2. Combine alphas using configured weights
-3. Rank symbols by combined alpha
-4. BUY top `max_positions` symbols above `long_threshold`
-5. SELL bottom `max_positions` symbols below `short_threshold`
-6. HOLD everything else
+1. Compute weights using `weight_model` (or config weights if no model)
+2. Load alphas for each symbol
+3. Combine alphas using computed weights
+4. Rank symbols by combined alpha
+5. BUY top `max_positions` symbols above `long_threshold`
+6. SELL bottom `max_positions` symbols below `short_threshold`
+7. HOLD everything else
 
 **Usage:**
 ```python

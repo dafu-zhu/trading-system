@@ -11,6 +11,12 @@ import logging
 
 from data_loader.features.alpha_loader import AlphaLoader, AlphaLoaderConfig
 from models import MarketSnapshot, Strategy
+from strategy.alpha_weights import (
+    AlphaWeightModel,
+    EqualWeightModel,
+    FixedWeightModel,
+    WeightResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +42,21 @@ class AlphaStrategy(Strategy):
     - Bottom N symbols (below short_threshold) -> SELL
     - Rest -> HOLD
 
-    Example:
+    Example with config weights:
         config = AlphaStrategyConfig(
             alpha_names=["momentum_20d", "mean_reversion"],
             alpha_weights={"momentum_20d": 0.6, "mean_reversion": 0.4},
-            long_threshold=0.5,
-            short_threshold=-0.5,
-            max_positions=10,
         )
-        loader = AlphaLoader(AlphaLoaderConfig())
-        strategy = AlphaStrategy(["AAPL", "MSFT", "GOOGL"], config, loader)
-        signals = strategy.generate_signals(snapshot)
+        strategy = AlphaStrategy(["AAPL", "MSFT"], config)
+
+    Example with weight model:
+        from strategy.alpha_weights import EqualWeightModel, ICWeightModel
+
+        # Equal weight (simplest)
+        strategy = AlphaStrategy(symbols, config, weight_model=EqualWeightModel())
+
+        # IC-weighted (data-driven)
+        strategy = AlphaStrategy(symbols, config, weight_model=ICWeightModel())
     """
 
     def __init__(
@@ -54,6 +64,7 @@ class AlphaStrategy(Strategy):
         symbols: list[str],
         config: Optional[AlphaStrategyConfig] = None,
         alpha_loader: Optional[AlphaLoader] = None,
+        weight_model: Optional[AlphaWeightModel] = None,
     ):
         """
         Initialize alpha strategy.
@@ -62,16 +73,37 @@ class AlphaStrategy(Strategy):
             symbols: List of symbols to trade
             config: Strategy configuration
             alpha_loader: Alpha data loader
+            weight_model: Model for computing alpha weights dynamically.
+                         If None, uses weights from config (FixedWeightModel).
+                         If config weights also empty, uses EqualWeightModel.
         """
         self.symbols = symbols
         self.config = config or AlphaStrategyConfig()
         self.alpha_loader = alpha_loader or AlphaLoader(AlphaLoaderConfig())
+
+        # Initialize weight model
+        self.weight_model = self._init_weight_model(weight_model)
 
         # State management (following MomentumStrategy pattern)
         self._combined_alpha: dict[str, float] = {}
         self._current_signals: dict[str, str] = {}
         self._last_refresh: Optional[datetime] = None
         self._rankings: list[tuple[str, float]] = []
+        self._current_weights: Optional[WeightResult] = None
+
+    def _init_weight_model(
+        self, weight_model: Optional[AlphaWeightModel]
+    ) -> AlphaWeightModel:
+        """Initialize weight model from config or parameter."""
+        if weight_model is not None:
+            return weight_model
+
+        # Use config weights if provided
+        if self.config.alpha_weights:
+            return FixedWeightModel(self.config.alpha_weights)
+
+        # Default to equal weight
+        return EqualWeightModel()
 
     def generate_signals(self, snapshot: MarketSnapshot) -> list:
         """
@@ -117,11 +149,19 @@ class AlphaStrategy(Strategy):
         """Refresh alpha data and compute combined alphas."""
         logger.info(f"Refreshing alphas at {timestamp}")
 
+        # Compute weights using weight model
+        self._current_weights = self.weight_model.compute_weights(
+            self.config.alpha_names
+        )
+        logger.debug(
+            f"Using weights from {self.weight_model.name}: {self._current_weights.weights}"
+        )
+
         # Load and combine alphas
         combined: dict[str, float] = {symbol: 0.0 for symbol in self.symbols}
 
         for alpha_name in self.config.alpha_names:
-            weight = self.config.alpha_weights.get(alpha_name, 1.0)
+            weight = self._current_weights.get_weight(alpha_name)
             alpha_values = self.alpha_loader.get_alpha_for_date(
                 alpha_name, self.symbols, timestamp
             )
@@ -223,3 +263,26 @@ class AlphaStrategy(Strategy):
         self._current_signals.clear()
         self._last_refresh = None
         self._rankings.clear()
+        self._current_weights = None
+
+    def get_current_weights(self) -> Optional[WeightResult]:
+        """
+        Get current alpha weights.
+
+        Returns:
+            WeightResult from last refresh, or None if not yet computed
+        """
+        return self._current_weights
+
+    def set_weight_model(self, weight_model: AlphaWeightModel) -> None:
+        """
+        Update the weight model.
+
+        Forces refresh on next signal generation.
+
+        Args:
+            weight_model: New weight model to use
+        """
+        self.weight_model = weight_model
+        self._last_refresh = None  # Force refresh
+        logger.info(f"Weight model updated to {weight_model.name}")
