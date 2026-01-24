@@ -77,6 +77,7 @@ def main():
         init_capital=initial_capital,
         position_sizer=position_sizer,
         slippage_bps=20,  # Higher slippage for crypto
+        max_volume_pct=1.0,  # Allow full volume for crypto (low liquidity data)
     )
 
     # Run backtest

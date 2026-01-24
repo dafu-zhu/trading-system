@@ -114,7 +114,7 @@ class DeterministicMatchingEngine(MatchingEngine):
             status = 'partially_filled'
             message = f'Order partially filled: {filled_qty:.2f}/{order.qty}'
 
-        logger.info(f"Order {order.order_id} {status}: {filled_qty:.2f} @ ${fill_price:.2f}")
+        logger.info(f"Order {order.order_id} {status}: {filled_qty:.6f} @ ${fill_price:.2f}")
 
         return {
             'order_id': order.order_id,
