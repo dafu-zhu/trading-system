@@ -11,7 +11,7 @@ import logging
 import threading
 import time
 from datetime import datetime, date, timezone
-from typing import Optional, Iterator, Callable, cast, TYPE_CHECKING, Any
+from typing import Optional, Iterator, Callable, cast, TYPE_CHECKING, Any, Sequence
 
 from alpaca.data.historical import StockHistoricalDataClient, CryptoHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest, CryptoBarsRequest
@@ -759,7 +759,7 @@ class AlpacaDataGateway(DataGateway):
 
     def replay_historical(
         self,
-        symbols: list[str | SymbolConfig],
+        symbols: Sequence[str | SymbolConfig],
         callback: Callable[[MarketDataPoint], None],
         timeframe: Timeframe,
         start: datetime,

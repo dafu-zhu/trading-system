@@ -425,7 +425,7 @@ class RiskManager:
                 quantity=abs(quantity),
                 order_type=OrderType.MARKET,
                 reason=f"Circuit breaker: {reason}",
-                trigger_price=current_price,
+                trigger_price=current_price, # type: ignore
                 stop_price=0.0,  # N/A for circuit breaker
             )
             exit_signals.append(exit_signal)

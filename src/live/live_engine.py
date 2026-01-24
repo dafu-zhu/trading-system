@@ -16,7 +16,6 @@ from config.trading_config import LiveEngineConfig, DataType, SymbolConfig, Asse
 from gateway.alpaca_data_gateway import AlpacaDataGateway
 from gateway.alpaca_trading_gateway import AlpacaTradingGateway
 from models import (
-    DataGateway,
     TradingGateway,
     Strategy,
     PositionSizer,
@@ -92,7 +91,7 @@ class LiveTradingEngine:
         config: LiveEngineConfig,
         strategy: Strategy,
         position_sizer: Optional[PositionSizer] = None,
-        data_gateway: Optional[DataGateway] = None,
+        data_gateway: Optional[AlpacaDataGateway] = None,
         trading_gateway: Optional[TradingGateway] = None,
     ):
         """
@@ -340,12 +339,13 @@ class LiveTradingEngine:
             quantity = self.positions[symbol].quantity
         else:
             # BUY: use position sizer
+            outer_self = self
             class MockPortfolio:
-                def get_total_value(self_inner):
-                    return self._get_portfolio_value()
+                def get_total_value(self):
+                    return outer_self._get_portfolio_value()
             quantity = self.position_sizer.calculate_qty(signal_dict, MockPortfolio(), price)
 
-        if quantity <= 0:
+        if quantity and quantity <= 0:
             logger.debug("Position sizer returned 0 quantity for %s", symbol)
             return
 
@@ -353,7 +353,7 @@ class LiveTradingEngine:
         result = self.order_validator.validate(
             symbol=symbol,
             side=side,
-            quantity=quantity,
+            quantity=float(quantity or 0),
             price=price,
             cash=self.cash,
             positions=self._get_positions_dict(),
@@ -374,7 +374,7 @@ class LiveTradingEngine:
                     symbol=symbol,
                     side=side.value,
                     order_type="market",
-                    quantity=quantity,
+                    quantity=float(quantity or 0),
                     price=price,
                     reason=result.error_message,
                 )
@@ -384,7 +384,7 @@ class LiveTradingEngine:
         self._execute_order(
             symbol=symbol,
             side=side,
-            quantity=quantity,
+            quantity=float(quantity or 0),
             price=price,
             timestamp=tick.timestamp,
         )

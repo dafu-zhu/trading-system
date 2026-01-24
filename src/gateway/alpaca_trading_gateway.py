@@ -4,10 +4,11 @@ Alpaca Trading Gateway implementation.
 Provides order submission, cancellation, and account/position queries
 via the Alpaca API.
 """
+from __future__ import annotations
 
 import os
 import logging
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, cast
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import (
@@ -35,6 +36,9 @@ from models import (
 )
 
 logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from alpaca.trading.models import TradeAccount
+    from alpaca.trading.models import Position
 
 
 class AlpacaTradingGateway(TradingGateway):
@@ -92,7 +96,7 @@ class AlpacaTradingGateway(TradingGateway):
                 paper=self._is_paper,
             )
             # Verify connection by fetching account
-            account = self._client.get_account()
+            account = cast(TradeAccount, self._client.get_account())
             self._connected = True
             logger.info(
                 "Connected to Alpaca %s trading. Account: %s",
@@ -119,6 +123,12 @@ class AlpacaTradingGateway(TradingGateway):
         """Raise error if not connected."""
         if not self.is_connected():
             raise RuntimeError("Not connected to Alpaca. Call connect() first.")
+
+    @property 
+    def _valid_client(self) -> TradingClient:
+        if self._client is None:
+            raise RuntimeError("Not connected")
+        return self._client
 
     def _map_order_side(self, side: OrderSide) -> AlpacaOrderSide:
         """Map internal OrderSide to Alpaca OrderSide."""
@@ -244,7 +254,7 @@ class AlpacaTradingGateway(TradingGateway):
             else:
                 raise ValueError(f"Unsupported order type: {order_type}")
 
-            order = self._client.submit_order(request)
+            order = self._valid_client.submit_order(request)
             result = self._alpaca_order_to_result(order)
             logger.info(
                 "Order submitted: %s %s %s @ %s, ID: %s",
@@ -275,7 +285,7 @@ class AlpacaTradingGateway(TradingGateway):
         self._ensure_connected()
 
         try:
-            self._client.cancel_order_by_id(order_id)
+            self._valid_client.cancel_order_by_id(order_id)
             logger.info("Order canceled: %s", order_id)
             return True
         except APIError as e:
@@ -287,7 +297,7 @@ class AlpacaTradingGateway(TradingGateway):
         self._ensure_connected()
 
         try:
-            order = self._client.get_order_by_id(order_id)
+            order = self._valid_client.get_order_by_id(order_id)
             return self._alpaca_order_to_result(order)
         except APIError as e:
             logger.error("Failed to get order %s: %s", order_id, e)
@@ -297,14 +307,14 @@ class AlpacaTradingGateway(TradingGateway):
         """Get current account information."""
         self._ensure_connected()
 
-        account = self._client.get_account()
+        account = cast(TradeAccount, self._valid_client.get_account())
         return AccountInfo(
             account_id=account.account_number,
-            cash=float(account.cash),
-            portfolio_value=float(account.portfolio_value),
-            buying_power=float(account.buying_power),
-            equity=float(account.equity),
-            currency=account.currency,
+            cash=float(account.cash or "0"),
+            portfolio_value=float(account.portfolio_value or "0"),
+            buying_power=float(account.buying_power or "0"),
+            equity=float(account.equity or "0"),
+            currency=str(account.currency),
             is_paper=self._is_paper,
         )
 
@@ -312,14 +322,14 @@ class AlpacaTradingGateway(TradingGateway):
         """Get all current positions."""
         self._ensure_connected()
 
-        positions = self._client.get_all_positions()
+        positions = cast(list[Position], self._valid_client.get_all_positions())
         return [
             PositionInfo(
                 symbol=pos.symbol,
                 quantity=float(pos.qty),
                 avg_entry_price=float(pos.avg_entry_price),
-                market_value=float(pos.market_value),
-                unrealized_pl=float(pos.unrealized_pl),
+                market_value=float(pos.market_value or "0"),
+                unrealized_pl=float(pos.unrealized_pl or "0"),
                 side="long" if float(pos.qty) > 0 else "short",
             )
             for pos in positions
@@ -330,13 +340,13 @@ class AlpacaTradingGateway(TradingGateway):
         self._ensure_connected()
 
         try:
-            pos = self._client.get_open_position(symbol)
+            pos = cast(Position, self._valid_client.get_open_position(symbol))
             return PositionInfo(
                 symbol=pos.symbol,
                 quantity=float(pos.qty),
                 avg_entry_price=float(pos.avg_entry_price),
-                market_value=float(pos.market_value),
-                unrealized_pl=float(pos.unrealized_pl),
+                market_value=float(pos.market_value or "0"),
+                unrealized_pl=float(pos.unrealized_pl or "0"),
                 side="long" if float(pos.qty) > 0 else "short",
             )
         except APIError:
