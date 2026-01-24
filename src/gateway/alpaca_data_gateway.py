@@ -266,6 +266,51 @@ class AlpacaDataGateway(DataGateway):
             logger.error("Failed to fetch bars for %s: %s", symbol, e)
             return []
 
+    def _fetch_bulk_for_asset_type(
+        self,
+        symbols_to_fetch: list[str],
+        timeframe: Timeframe,
+        alpaca_tf: AlpacaTimeFrame,
+        start: datetime,
+        end: datetime,
+        asset_type: AssetType,
+    ) -> dict[str, list[Bar]]:
+        """Fetch bars for a single asset type. Returns empty lists on API error."""
+        if asset_type == AssetType.CRYPTO:
+            if self._crypto_data_client is None:
+                raise RuntimeError("Crypto client not connected")
+            request = CryptoBarsRequest(
+                symbol_or_symbols=symbols_to_fetch,
+                timeframe=alpaca_tf,
+                start=start,
+                end=end,
+            )
+            response = self._crypto_data_client.get_crypto_bars(request)
+        else:
+            if self._stock_data_client is None:
+                raise RuntimeError("Stock client not connected")
+            request = StockBarsRequest(
+                symbol_or_symbols=symbols_to_fetch,
+                timeframe=alpaca_tf,
+                start=start,
+                end=end,
+            )
+            response = self._stock_data_client.get_stock_bars(request)
+
+        data: Any = getattr(response, "data", response)
+        result: dict[str, list[Bar]] = {}
+
+        for symbol in symbols_to_fetch:
+            bars = [
+                self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe)
+                for alpaca_bar in data.get(symbol, [])
+            ]
+            result[symbol] = bars
+            if self._use_cache and self._storage and bars:
+                self._storage.save_bars(bars)
+
+        return result
+
     def fetch_bars_bulk(
         self,
         symbols: list[str],
@@ -288,37 +333,29 @@ class AlpacaDataGateway(DataGateway):
         start = self._ensure_utc(start)
         end = self._ensure_utc(end)
 
-        request = StockBarsRequest(
-            symbol_or_symbols=symbols,
-            timeframe=alpaca_tf,
-            start=start,
-            end=end,
-        )
+        stock_symbols = [s for s in symbols if "/" not in s]
+        crypto_symbols = [s for s in symbols if "/" in s]
+        result: dict[str, list[Bar]] = {}
 
-        try:
-            response = self._stock_data_client.get_stock_bars(request)
-            data = response.data if hasattr(response, "data") else response
-            result = {}
+        for asset_type, asset_symbols in [
+            (AssetType.STOCK, stock_symbols),
+            (AssetType.CRYPTO, crypto_symbols),
+        ]:
+            if not asset_symbols:
+                continue
+            try:
+                fetched = self._fetch_bulk_for_asset_type(
+                    asset_symbols, timeframe, alpaca_tf, start, end, asset_type
+                )
+                result.update(fetched)
+            except APIError as e:
+                logger.error("Failed to fetch %s bars: %s", asset_type.value, e)
+                result.update({s: [] for s in asset_symbols})
 
-            for symbol in symbols:
-                bars = [
-                    self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe)
-                    for alpaca_bar in data.get(symbol, [])
-                ]
-                result[symbol] = bars
+        total_bars = sum(len(bars) for bars in result.values())
+        logger.info("Fetched %d total bars for %d symbols", total_bars, len(symbols))
 
-                if self._use_cache and self._storage and bars:
-                    self._storage.save_bars(bars)
-
-            total_bars = sum(len(bars) for bars in result.values())
-            logger.info(
-                "Fetched %d total bars for %d symbols", total_bars, len(symbols)
-            )
-            return result
-
-        except APIError as e:
-            logger.error("Failed to fetch bulk bars: %s", e)
-            return {symbol: [] for symbol in symbols}
+        return result
 
     def stream_bars(
         self,
