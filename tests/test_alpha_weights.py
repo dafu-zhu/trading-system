@@ -1,7 +1,5 @@
 """
 Tests for alpha weight models.
-
-Tests EqualWeightModel, FixedWeightModel, and factory function.
 """
 
 import pytest
@@ -9,9 +7,7 @@ import pytest
 from strategy.alpha_weights import (
     AlphaWeightModel,
     EqualWeightModel,
-    FixedWeightModel,
     WeightResult,
-    create_weight_model,
 )
 
 
@@ -81,70 +77,6 @@ class TestEqualWeightModel:
         result = model.compute_weights(["a", "b"])
         assert result.metadata["model"] == "equal_weight"
         assert result.metadata["n_alphas"] == 2
-
-
-class TestFixedWeightModel:
-    """Tests for FixedWeightModel."""
-
-    def test_basic_usage(self):
-        """Test basic fixed weights."""
-        model = FixedWeightModel({"a": 0.6, "b": 0.4})
-        result = model.compute_weights(["a", "b"])
-        assert result.weights["a"] == 0.6
-        assert result.weights["b"] == 0.4
-
-    def test_name(self):
-        """Test model name."""
-        model = FixedWeightModel({"a": 1.0})
-        assert model.name == "fixed_weight"
-
-    def test_invalid_weights_sum_raises(self):
-        """Test invalid weights sum raises on init."""
-        with pytest.raises(ValueError, match="sum to 1.0"):
-            FixedWeightModel({"a": 0.5, "b": 0.3})
-
-    def test_missing_alpha_raises(self):
-        """Test missing alpha raises error."""
-        model = FixedWeightModel({"a": 0.6, "b": 0.4})
-        with pytest.raises(ValueError, match="No weights specified"):
-            model.compute_weights(["a", "c"])
-
-    def test_subset_renormalization(self):
-        """Test subset of alphas is renormalized."""
-        model = FixedWeightModel({"a": 0.5, "b": 0.3, "c": 0.2})
-        result = model.compute_weights(["a", "b"])
-        assert result.weights["a"] == pytest.approx(0.5 / 0.8)
-        assert result.weights["b"] == pytest.approx(0.3 / 0.8)
-
-    def test_empty_alphas_raises(self):
-        """Test empty alphas raises error."""
-        model = FixedWeightModel({"a": 1.0})
-        with pytest.raises(ValueError, match="At least one alpha"):
-            model.compute_weights([])
-
-
-class TestCreateWeightModel:
-    """Tests for factory function."""
-
-    def test_create_equal(self):
-        """Test creating equal weight model."""
-        model = create_weight_model("equal")
-        assert isinstance(model, EqualWeightModel)
-
-    def test_create_fixed(self):
-        """Test creating fixed weight model."""
-        model = create_weight_model("fixed", {"weights": {"a": 0.6, "b": 0.4}})
-        assert isinstance(model, FixedWeightModel)
-
-    def test_create_fixed_without_weights_raises(self):
-        """Test fixed model without weights raises."""
-        with pytest.raises(ValueError, match="requires 'weights'"):
-            create_weight_model("fixed", {})
-
-    def test_unknown_type_raises(self):
-        """Test unknown model type raises."""
-        with pytest.raises(ValueError, match="Unknown weight model"):
-            create_weight_model("unknown")
 
 
 class TestAlphaWeightModelABC:

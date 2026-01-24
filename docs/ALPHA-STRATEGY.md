@@ -127,44 +127,26 @@ Extensible framework for computing alpha weights dynamically. Allows strategies 
 **Classes:**
 | Class | Description |
 |-------|-------------|
-| `AlphaWeightModel` | Abstract base class |
+| `AlphaWeightModel` | Abstract base class for custom models |
 | `EqualWeightModel` | 1/N weight to each alpha (default) |
-| `FixedWeightModel` | Static weights from config |
 
 **Usage:**
 ```python
-from strategy.alpha_weights import (
-    EqualWeightModel,
-    FixedWeightModel,
-    create_weight_model,
-)
+from strategy.alpha_weights import EqualWeightModel
 
-# Equal weight (simplest)
 model = EqualWeightModel()
 result = model.compute_weights(["momentum", "value", "quality"])
 # result.weights = {"momentum": 0.333, "value": 0.333, "quality": 0.333}
-
-# Fixed weights
-model = FixedWeightModel({"momentum": 0.6, "value": 0.4})
-
-# Factory function
-model = create_weight_model("equal")
-model = create_weight_model("fixed", {"weights": {"a": 0.5, "b": 0.5}})
 ```
 
 **Integration with AlphaStrategy:**
 ```python
 from strategy.alpha_strategy import AlphaStrategy
-from strategy.alpha_weights import EqualWeightModel
 
-# Use equal weights (ignores config weights)
-strategy = AlphaStrategy(
-    symbols=["AAPL", "MSFT"],
-    config=config,
-    weight_model=EqualWeightModel(),
-)
+# Uses EqualWeightModel by default
+strategy = AlphaStrategy(symbols=["AAPL", "MSFT"], config=config)
 
-# Get current weights
+# Get current weights after signal generation
 weights = strategy.get_current_weights()
 print(weights.weights)  # {"momentum_20d": 0.5, "mean_reversion": 0.5}
 ```

@@ -14,7 +14,6 @@ from models import MarketSnapshot, Strategy
 from strategy.alpha_weights import (
     AlphaWeightModel,
     EqualWeightModel,
-    FixedWeightModel,
     WeightResult,
 )
 
@@ -26,7 +25,6 @@ class AlphaStrategyConfig:
     """Configuration for AlphaStrategy."""
 
     alpha_names: list[str] = field(default_factory=lambda: ["momentum_20d"])
-    alpha_weights: dict[str, float] = field(default_factory=lambda: {"momentum_20d": 1.0})
     long_threshold: float = 0.5
     short_threshold: float = -0.5
     refresh_frequency: str = "daily"  # "daily" or "hourly"
@@ -42,21 +40,16 @@ class AlphaStrategy(Strategy):
     - Bottom N symbols (below short_threshold) -> SELL
     - Rest -> HOLD
 
-    Example with config weights:
+    Uses equal weighting for alphas by default. Custom weight models can be
+    provided for more sophisticated weighting schemes.
+
+    Example:
         config = AlphaStrategyConfig(
             alpha_names=["momentum_20d", "mean_reversion"],
-            alpha_weights={"momentum_20d": 0.6, "mean_reversion": 0.4},
+            long_threshold=0.5,
+            max_positions=10,
         )
         strategy = AlphaStrategy(["AAPL", "MSFT"], config)
-
-    Example with weight model:
-        from strategy.alpha_weights import EqualWeightModel, ICWeightModel
-
-        # Equal weight (simplest)
-        strategy = AlphaStrategy(symbols, config, weight_model=EqualWeightModel())
-
-        # IC-weighted (data-driven)
-        strategy = AlphaStrategy(symbols, config, weight_model=ICWeightModel())
     """
 
     def __init__(
@@ -73,37 +66,19 @@ class AlphaStrategy(Strategy):
             symbols: List of symbols to trade
             config: Strategy configuration
             alpha_loader: Alpha data loader
-            weight_model: Model for computing alpha weights dynamically.
-                         If None, uses weights from config (FixedWeightModel).
-                         If config weights also empty, uses EqualWeightModel.
+            weight_model: Model for computing alpha weights. Defaults to EqualWeightModel.
         """
         self.symbols = symbols
         self.config = config or AlphaStrategyConfig()
         self.alpha_loader = alpha_loader or AlphaLoader(AlphaLoaderConfig())
+        self.weight_model = weight_model or EqualWeightModel()
 
-        # Initialize weight model
-        self.weight_model = self._init_weight_model(weight_model)
-
-        # State management (following MomentumStrategy pattern)
+        # State management
         self._combined_alpha: dict[str, float] = {}
         self._current_signals: dict[str, str] = {}
         self._last_refresh: Optional[datetime] = None
         self._rankings: list[tuple[str, float]] = []
         self._current_weights: Optional[WeightResult] = None
-
-    def _init_weight_model(
-        self, weight_model: Optional[AlphaWeightModel]
-    ) -> AlphaWeightModel:
-        """Initialize weight model from config or parameter."""
-        if weight_model is not None:
-            return weight_model
-
-        # Use config weights if provided
-        if self.config.alpha_weights:
-            return FixedWeightModel(self.config.alpha_weights)
-
-        # Default to equal weight
-        return EqualWeightModel()
 
     def generate_signals(self, snapshot: MarketSnapshot) -> list:
         """
@@ -115,15 +90,13 @@ class AlphaStrategy(Strategy):
         Returns:
             List of signal dicts for each symbol
         """
-        # Check if refresh needed
         if self._needs_refresh(snapshot.timestamp):
             self._refresh_alphas(snapshot.timestamp)
 
-        # Generate signals for each symbol
         signals = []
         for symbol in snapshot.prices.keys():
             if symbol not in self.symbols:
-                continue  # Skip symbols not in our universe
+                continue
 
             signal = self._generate_signal_for_symbol(symbol, snapshot)
             signals.append(signal)
@@ -136,10 +109,8 @@ class AlphaStrategy(Strategy):
             return True
 
         if self.config.refresh_frequency == "daily":
-            # Refresh if different day
             return timestamp.date() != self._last_refresh.date()
         elif self.config.refresh_frequency == "hourly":
-            # Refresh if different hour
             elapsed = timestamp - self._last_refresh
             return elapsed >= timedelta(hours=1)
         else:
@@ -177,9 +148,7 @@ class AlphaStrategy(Strategy):
             combined.items(), key=lambda x: x[1], reverse=True
         )
 
-        # Compute signals based on rankings
         self._compute_signals()
-
         self._last_refresh = timestamp
 
     def _compute_signals(self) -> None:
@@ -188,15 +157,12 @@ class AlphaStrategy(Strategy):
         if n_symbols == 0:
             return
 
-        # Determine thresholds based on ranking position
         max_long = min(self.config.max_positions, n_symbols)
         max_short = min(self.config.max_positions, n_symbols)
 
         for i, (symbol, alpha_value) in enumerate(self._rankings):
-            # Top symbols with alpha above threshold -> BUY
             if i < max_long and alpha_value >= self.config.long_threshold:
                 self._current_signals[symbol] = "BUY"
-            # Bottom symbols with alpha below threshold -> SELL
             elif (
                 i >= n_symbols - max_short
                 and alpha_value <= self.config.short_threshold
@@ -231,7 +197,6 @@ class AlphaStrategy(Strategy):
         Returns:
             Dictionary mapping symbol -> signal dict
         """
-        # Refresh if needed
         if self._needs_refresh(timestamp):
             self._refresh_alphas(timestamp)
 
@@ -249,12 +214,7 @@ class AlphaStrategy(Strategy):
         return result
 
     def get_rankings(self) -> list[tuple[str, float]]:
-        """
-        Get current alpha rankings.
-
-        Returns:
-            List of (symbol, alpha_value) tuples sorted by alpha descending
-        """
+        """Get current alpha rankings."""
         return self._rankings.copy()
 
     def reset(self) -> None:
@@ -266,23 +226,11 @@ class AlphaStrategy(Strategy):
         self._current_weights = None
 
     def get_current_weights(self) -> Optional[WeightResult]:
-        """
-        Get current alpha weights.
-
-        Returns:
-            WeightResult from last refresh, or None if not yet computed
-        """
+        """Get current alpha weights."""
         return self._current_weights
 
     def set_weight_model(self, weight_model: AlphaWeightModel) -> None:
-        """
-        Update the weight model.
-
-        Forces refresh on next signal generation.
-
-        Args:
-            weight_model: New weight model to use
-        """
+        """Update the weight model. Forces refresh on next signal generation."""
         self.weight_model = weight_model
-        self._last_refresh = None  # Force refresh
+        self._last_refresh = None
         logger.info(f"Weight model updated to {weight_model.name}")

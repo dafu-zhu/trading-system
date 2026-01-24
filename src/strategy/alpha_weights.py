@@ -6,7 +6,6 @@ Provides extensible framework for computing alpha weights dynamically.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -95,82 +94,3 @@ class EqualWeightModel(AlphaWeightModel):
             weights=weights,
             metadata={"model": self.name, "n_alphas": n},
         )
-
-
-class FixedWeightModel(AlphaWeightModel):
-    """
-    Fixed user-specified weights.
-
-    Wraps static weights from configuration into the AlphaWeightModel interface.
-
-    Example:
-        model = FixedWeightModel({"momentum": 0.6, "value": 0.4})
-        result = model.compute_weights(["momentum", "value"])
-    """
-
-    def __init__(self, weights: dict[str, float]):
-        """
-        Initialize with fixed weights.
-
-        Args:
-            weights: Dict mapping alpha names to weights (must sum to 1.0)
-        """
-        total = sum(weights.values())
-        if abs(total - 1.0) > 1e-6:
-            raise ValueError(f"Weights must sum to 1.0, got {total}")
-        self._weights = weights.copy()
-
-    @property
-    def name(self) -> str:
-        return "fixed_weight"
-
-    def compute_weights(self, alpha_names: list[str]) -> WeightResult:
-        """Return fixed weights for requested alphas."""
-        self.validate_alphas(alpha_names)
-
-        # Validate all requested alphas have weights
-        missing = [a for a in alpha_names if a not in self._weights]
-        if missing:
-            raise ValueError(f"No weights specified for alphas: {missing}")
-
-        # Extract only requested alphas and renormalize
-        weights = {name: self._weights[name] for name in alpha_names}
-        total = sum(weights.values())
-
-        if abs(total - 1.0) > 1e-6:
-            weights = {k: v / total for k, v in weights.items()}
-            logger.debug("FixedWeightModel: renormalized weights to sum to 1.0")
-
-        return WeightResult(
-            weights=weights,
-            metadata={"model": self.name, "original_weights": self._weights},
-        )
-
-
-def create_weight_model(
-    model_type: str,
-    config: Optional[dict] = None,
-) -> AlphaWeightModel:
-    """
-    Factory function to create weight models.
-
-    Args:
-        model_type: One of "equal", "fixed"
-        config: Model-specific configuration
-
-    Returns:
-        AlphaWeightModel instance
-    """
-    config = config or {}
-
-    if model_type == "equal":
-        return EqualWeightModel()
-
-    elif model_type == "fixed":
-        weights = config.get("weights")
-        if not weights:
-            raise ValueError("FixedWeightModel requires 'weights' in config")
-        return FixedWeightModel(weights)
-
-    else:
-        raise ValueError(f"Unknown weight model type: {model_type}")

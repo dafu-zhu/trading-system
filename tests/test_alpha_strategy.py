@@ -131,7 +131,6 @@ class TestAlphaStrategy:
         """Sample strategy config."""
         return AlphaStrategyConfig(
             alpha_names=["momentum_20d"],
-            alpha_weights={"momentum_20d": 1.0},
             long_threshold=0.3,
             short_threshold=-0.3,
             max_positions=2,
@@ -232,7 +231,6 @@ class TestAlphaStrategy:
         """Test that max_positions is respected."""
         config = AlphaStrategyConfig(
             alpha_names=["momentum_20d"],
-            alpha_weights={"momentum_20d": 1.0},
             long_threshold=0.0,  # Very permissive
             short_threshold=0.0,
             max_positions=1,  # Very restrictive
@@ -287,7 +285,6 @@ class TestAlphaConfig:
             "strategy": {
                 "type": "alpha",
                 "alphas": ["momentum_20d", "mean_reversion"],
-                "weights": {"momentum_20d": 0.6, "mean_reversion": 0.4},
                 "thresholds": {"long": 0.5, "short": -0.5},
                 "refresh": "daily",
                 "max_positions": 10,
@@ -299,8 +296,6 @@ class TestAlphaConfig:
         config = parse_alpha_config(valid_config_dict)
 
         assert config.alpha_names == ["momentum_20d", "mean_reversion"]
-        assert config.alpha_weights["momentum_20d"] == 0.6
-        assert config.alpha_weights["mean_reversion"] == 0.4
         assert config.long_threshold == 0.5
         assert config.short_threshold == -0.5
         assert config.refresh_frequency == "daily"
@@ -319,14 +314,6 @@ class TestAlphaConfig:
         """Test validation rejects empty alphas."""
         with pytest.raises(ValueError, match="At least one alpha"):
             parse_alpha_config({"alphas": []})
-
-    def test_validation_weight_sum(self):
-        """Test validation checks weight sum."""
-        with pytest.raises(ValueError, match="sum to 1.0"):
-            parse_alpha_config({
-                "alphas": ["momentum_20d", "mean_reversion"],
-                "weights": {"momentum_20d": 0.5, "mean_reversion": 0.3},
-            })
 
     def test_validation_threshold_order(self):
         """Test validation checks threshold order."""
