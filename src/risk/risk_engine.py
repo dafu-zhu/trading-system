@@ -20,7 +20,7 @@ class RiskEngine:
 
         symbol_pos = self._portfolio.get_position(order.symbol)[0]
         current_qty = symbol_pos["quantity"]
-        if abs(current_qty + order.qty * order.side.value) > self.max_position:
+        if abs(current_qty + order.qty * order.side.multiplier) > self.max_position:
             res = False
 
         return res

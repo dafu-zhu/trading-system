@@ -4,16 +4,24 @@ import datetime
 from abc import abstractmethod, ABC
 from typing import Optional, Iterator, Sequence, Callable, TYPE_CHECKING
 from enum import Enum
-from orders.order import Order
+
+from config.trading_config import DataType, AssetType
 
 if TYPE_CHECKING:
-    from config.trading_config import SymbolConfig, DataType, AssetType
+    from config.trading_config import SymbolConfig
+    from portfolio import Portfolio
+    from orders.order import Order
 
 
 class OrderSide(Enum):
     """Order side enumeration."""
     BUY = "buy"
     SELL = "sell"
+
+    @property
+    def multiplier(self) -> int:
+        """Numeric multiplier for calculations: BUY=1, SELL=-1."""
+        return 1 if self == OrderSide.BUY else -1
 
 
 class OrderType(Enum):
@@ -382,9 +390,10 @@ class MatchingEngine(ABC):
 class PositionSizer(ABC):
 
     @abstractmethod
-    def calculate_qty(self, signal: dict, portfolio, price: float):
+    def calculate_qty(self, signal: dict, portfolio: "Portfolio", price: float) -> float:
         """
-        Calculate position size
+        Calculate position size.
+
         :param signal: Trading signal dictionary
         :param portfolio: Current portfolio state
         :param price: Current price of the instrument

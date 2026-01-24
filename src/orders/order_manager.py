@@ -5,7 +5,7 @@ before putting it into the OrderBook
 
 from portfolio import Portfolio, Position
 from orders.order import Order, OrderSide
-from orders.risk_engine import RiskEngine
+from risk.risk_engine import RiskEngine
 
 class OrderManager:
     def __init__(

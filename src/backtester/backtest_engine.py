@@ -8,9 +8,8 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from models import DataGateway, Timeframe, Bar, MarketDataPoint, Strategy
+from models import DataGateway, Timeframe, Bar, MarketDataPoint, Strategy, OrderSide
 from orders.order import Order, OrderState
-from orders.order import OrderSide as LegacyOrderSide
 from orders.order_manager import OrderManager
 from orders.matching_engine import DeterministicMatchingEngine
 from portfolio import Portfolio, Position
@@ -110,9 +109,9 @@ class BacktestEngine:
             action = signal.get('action', 'HOLD') if signal else 'HOLD'
 
             # Process actionable signals (BUY/SELL)
-            if action in ('BUY', 'SELL'):
-                side = LegacyOrderSide.BUY if action == 'BUY' else LegacyOrderSide.SELL
-                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close) # type: ignore
+            if signal is not None and action in ('BUY', 'SELL'):
+                side = OrderSide.BUY if action == 'BUY' else OrderSide.SELL
+                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
                 if qty > 0:
                     self._process_order(bar, symbol, side, qty)
 
@@ -128,7 +127,7 @@ class BacktestEngine:
         self,
         bar: Bar,
         symbol: str,
-        side: LegacyOrderSide,
+        side: OrderSide,
         qty: float,
     ) -> None:
         """Process an order through validation and matching."""
@@ -163,14 +162,14 @@ class BacktestEngine:
     def _process_fill(
         self,
         symbol: str,
-        side: LegacyOrderSide,
+        side: OrderSide,
         filled_qty: float,
         fill_price: float,
         timestamp: datetime,
-        order_id: str,
+        order_id: int,
     ) -> None:
         """Process a fill: update portfolio and track trade."""
-        side_mul = float(side.value)
+        side_mul = side.multiplier
 
         # Track trade
         self._trade_tracker.process_fill(

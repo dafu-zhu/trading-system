@@ -28,7 +28,7 @@ class FixedSizer(PositionSizer):
         self.min_qty = min_qty
         self.max_qty = max_qty
 
-    def calculate_qty(self, signal: dict, portfolio, price: float):
+    def calculate_qty(self, signal: dict, portfolio: Portfolio, price: float) -> float:
         qty = self.fixed_qty
         # Apply constraints
         qty = max(self.min_qty, qty)
@@ -45,7 +45,7 @@ class PercentSizer(PositionSizer):
     def __init__(self, equity_percent: float = 0.10):
         self.equity_percent = equity_percent
 
-    def calculate_qty(self, signal: dict, portfolio, price: float):
+    def calculate_qty(self, signal: dict, portfolio: Portfolio, price: float) -> float:
         equity = portfolio.get_total_value()
         position_value = equity * self.equity_percent
         if price <= 0:
@@ -76,7 +76,7 @@ class RiskBasedSizer(PositionSizer):
     def __init__(self, risk_per_trade: float):
         self.risk_per_trade = risk_per_trade
 
-    def calculate_qty(self, signal: dict, portfolio, price: float):
+    def calculate_qty(self, signal: dict, portfolio: Portfolio, price: float) -> float:
         equity = portfolio.get_total_value()
         risk_amount = equity * self.risk_per_trade
 
@@ -167,7 +167,7 @@ class KellySizer(PositionSizer):
 
         return kelly
 
-    def calculate_qty(self, signal: dict, portfolio, price: float) -> float:
+    def calculate_qty(self, signal: dict, portfolio: Portfolio, price: float) -> float:
         equity = portfolio.get_total_value()
 
         # Use signal parameters if provided, else use defaults
@@ -256,7 +256,7 @@ class VolatilitySizer(PositionSizer):
         self.max_position_pct = max_position_pct
         self.min_qty = min_qty
 
-    def calculate_qty(self, signal: dict, portfolio, price: float) -> float:
+    def calculate_qty(self, signal: dict, portfolio: Portfolio, price: float) -> float:
         equity = portfolio.get_total_value()
 
         # Get ATR from signal or calculate default

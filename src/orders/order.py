@@ -3,16 +3,10 @@ from enum import Enum, auto
 from datetime import datetime
 from typing import Optional
 from logger.logger import setup_logging
+from models import OrderSide
 
 logger = logging.getLogger("src.order")
 setup_logging()
-
-
-class OrderSide(Enum):
-    """Order side enumeration."""
-    BUY = 1
-    SELL = -1
-    HOLD = 0
 
 
 class OrderState(Enum):
