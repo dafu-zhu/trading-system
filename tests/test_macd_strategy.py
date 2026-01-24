@@ -5,6 +5,7 @@ Tests with mocked DataGateway for unit testing.
 """
 
 import pytest
+import pandas as pd
 from datetime import datetime
 from unittest.mock import Mock, MagicMock
 
@@ -261,3 +262,42 @@ class TestMACDStrategyIntegration:
         # (At least 1 of each, but likely more)
         assert buy_count > 0, "Should detect at least one bullish crossover"
         assert sell_count > 0, "Should detect at least one bearish crossover"
+
+
+class TestGenerateSignalsFromMACD:
+    """Tests for the generate_signals_from_macd static method."""
+
+    def test_signal_generation(self):
+        """Test signal generation adds signal column."""
+        df = pd.DataFrame({
+            'close': [100, 101, 102, 103, 104],
+            'macd': [1, 2, 1, 0, 1],
+            'macd_signal': [0.5, 1.5, 1.5, 0.5, 0.5],
+        })
+
+        result = MACDStrategy.generate_signals_from_macd(df)
+
+        assert 'signal' in result.columns
+        assert set(result['signal'].unique()).issubset({'BUY', 'SELL', 'HOLD'})
+
+    def test_requires_macd_columns(self):
+        """Test that signal generation requires MACD columns."""
+        df = pd.DataFrame({'close': [100, 101, 102]})
+
+        with pytest.raises(ValueError, match="Missing columns"):
+            MACDStrategy.generate_signals_from_macd(df)
+
+    def test_signal_logic(self):
+        """Test signal logic with known values."""
+        df = pd.DataFrame({
+            'close': [100, 101, 102, 103, 104],
+            'macd': [1, 2, -1, -2, 1],
+            'macd_signal': [0.5, 1.5, 0, -1, 0.5],
+        })
+
+        result = MACDStrategy.generate_signals_from_macd(df)
+
+        # Row 2: macd goes from above signal (2 > 1.5) to below (-1 < 0) -> SELL
+        assert result.iloc[2]['signal'] == 'SELL'
+        # Row 4: macd goes from below signal (-2 < -1) to above (1 > 0.5) -> BUY
+        assert result.iloc[4]['signal'] == 'BUY'

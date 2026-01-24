@@ -309,41 +309,6 @@ class TestCalculateAllMethod(TestFeatureCalculator):
         assert 'bb_middle' in df.columns
 
 
-class TestMACDSignalGeneration(TestFeatureCalculator):
-    """Tests for MACD signal generation."""
-
-    def test_signal_generation(self, sample_bars):
-        """Test signal generation from MACD."""
-        df = FeatureCalculator.bars_to_dataframe(sample_bars)
-        FeatureCalculator.add_macd(df)
-        df = FeatureCalculator.generate_macd_signals(df)
-
-        assert 'signal' in df.columns
-        assert set(df['signal'].unique()).issubset({'BUY', 'SELL', 'HOLD'})
-
-    def test_signal_requires_macd(self, sample_bars):
-        """Test that signal generation requires MACD columns."""
-        df = FeatureCalculator.bars_to_dataframe(sample_bars)
-
-        with pytest.raises(ValueError, match="Missing columns"):
-            FeatureCalculator.generate_macd_signals(df)
-
-    def test_signal_logic(self):
-        """Test signal logic with known values."""
-        # Create a DataFrame with known MACD values
-        df = pd.DataFrame({
-            'close': [100, 101, 102, 103, 104],
-            'macd': [1, 2, -1, -2, 1],
-            'macd_signal': [0.5, 1.5, 0, -1, 0.5],
-        })
-
-        df = FeatureCalculator.generate_macd_signals(df)
-
-        # Check crossovers
-        # Row 2: macd goes from above to below signal -> SELL
-        # Row 4: macd goes from below to above signal -> BUY
-
-
 class TestFeatureParams:
     """Tests for FeatureParams dataclass."""
 
