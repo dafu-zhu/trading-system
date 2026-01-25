@@ -278,7 +278,9 @@ class TestPortfolio:
         pos2 = Position("AAPL", 50, 155.0)
 
         portfolio.add_position(pos1, portfolio.root)
-        with pytest.raises(ValueError, match=f"Symbol {pos2.symbol} already exists in portfolio"):
+        with pytest.raises(
+            ValueError, match=f"Symbol {pos2.symbol} already exists in portfolio"
+        ):
             portfolio.add_position(pos2, tech)
 
     def test_value_after_quantity_update(self):
@@ -312,13 +314,16 @@ class TestPortfolio:
 class TestPositionParametrized:
     """Parametrized tests for Position class"""
 
-    @pytest.mark.parametrize("symbol,quantity,price,expected_value", [
-        ("AAPL", 100, 150.0, 15000.0),
-        ("GOOGL", 50, 200.0, 10000.0),
-        ("MSFT", 75, 300.0, 22500.0),
-        ("TSLA", -20, 250.0, -5000.0),  # Short position
-        ("AMZN", 0, 100.0, 0.0),  # Zero quantity
-    ])
+    @pytest.mark.parametrize(
+        "symbol,quantity,price,expected_value",
+        [
+            ("AAPL", 100, 150.0, 15000.0),
+            ("GOOGL", 50, 200.0, 10000.0),
+            ("MSFT", 75, 300.0, 22500.0),
+            ("TSLA", -20, 250.0, -5000.0),  # Short position
+            ("AMZN", 0, 100.0, 0.0),  # Zero quantity
+        ],
+    )
     def test_position_value_parametrized(self, symbol, quantity, price, expected_value):
         """Test position value calculation with various inputs"""
         pos = Position(symbol, quantity, price)

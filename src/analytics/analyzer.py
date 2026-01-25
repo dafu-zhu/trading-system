@@ -3,6 +3,7 @@ Simplified backtest results analyzer.
 
 Analyzes trades and equity curve to generate performance reports.
 """
+
 import pandas as pd
 from typing import List, Dict
 from analytics.metrics import PerformanceMetrics, format_metrics
@@ -57,9 +58,9 @@ class BacktestAnalyzer:
         """
         if self.equity_curve is None or len(self.equity_curve) == 0:
             return {
-                'error': 'No equity curve data available',
-                'metrics': {},
-                'num_trades': len(self.trades),
+                "error": "No equity curve data available",
+                "metrics": {},
+                "num_trades": len(self.trades),
             }
 
         # Calculate metrics
@@ -71,14 +72,14 @@ class BacktestAnalyzer:
         total_return = (final_value - initial_value) / initial_value
 
         results = {
-            'metrics': metrics,
-            'num_trades': len(self.trades),
-            'equity_info': {
-                'initial_value': initial_value,
-                'final_value': final_value,
-                'total_return': total_return,
-                'num_ticks': len(self.equity_curve),
-            }
+            "metrics": metrics,
+            "num_trades": len(self.trades),
+            "equity_info": {
+                "initial_value": initial_value,
+                "final_value": final_value,
+                "total_return": total_return,
+                "num_ticks": len(self.equity_curve),
+            },
         }
 
         return results
@@ -92,7 +93,7 @@ class BacktestAnalyzer:
         """
         analysis = self.analyze()
 
-        if 'error' in analysis:
+        if "error" in analysis:
             return f"Error: {analysis['error']}"
 
         report = []
@@ -101,9 +102,11 @@ class BacktestAnalyzer:
         report.append("=" * 70)
 
         # Equity info
-        equity_info = analysis.get('equity_info', {})
+        equity_info = analysis.get("equity_info", {})
         report.append("\nEquity Curve Summary:")
-        report.append(f"  Initial Value:  ${equity_info.get('initial_value', 0):>12,.2f}")
+        report.append(
+            f"  Initial Value:  ${equity_info.get('initial_value', 0):>12,.2f}"
+        )
         report.append(f"  Final Value:    ${equity_info.get('final_value', 0):>12,.2f}")
         report.append(f"  Total Return:   {equity_info.get('total_return', 0):>12.2%}")
         report.append(f"  Number of Ticks: {equity_info.get('num_ticks', 0):>12,}")
@@ -112,8 +115,8 @@ class BacktestAnalyzer:
         report.append(f"\nTotal Trades:     {analysis.get('num_trades', 0):>12,}")
 
         # Performance metrics
-        if 'metrics' in analysis:
-            report.append("\n" + format_metrics(analysis['metrics']))
+        if "metrics" in analysis:
+            report.append("\n" + format_metrics(analysis["metrics"]))
 
         report.append("=" * 70)
         return "\n".join(report)
@@ -140,7 +143,7 @@ class BacktestAnalyzer:
         return pd.DataFrame(self.trades)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import numpy as np
 
     print("=" * 70)
@@ -151,7 +154,7 @@ if __name__ == '__main__':
     analyzer = BacktestAnalyzer(risk_free_rate=0.02)
 
     # Generate sample equity curve
-    dates = pd.date_range('2023-01-01', periods=252, freq='D')
+    dates = pd.date_range("2023-01-01", periods=252, freq="D")
     np.random.seed(42)
     returns = np.random.normal(0.0008, 0.012, 252)
     equity = 100000 * (1 + pd.Series(returns)).cumprod()
@@ -160,16 +163,16 @@ if __name__ == '__main__':
 
     # Add sample trades
     trades = [
-        {'pnl': 500},
-        {'pnl': -200},
-        {'pnl': 300},
-        {'pnl': -150},
-        {'pnl': 700},
-        {'pnl': -100},
-        {'pnl': 400},
-        {'pnl': -250},
-        {'pnl': 600},
-        {'pnl': -180},
+        {"pnl": 500},
+        {"pnl": -200},
+        {"pnl": 300},
+        {"pnl": -150},
+        {"pnl": 700},
+        {"pnl": -100},
+        {"pnl": 400},
+        {"pnl": -250},
+        {"pnl": 600},
+        {"pnl": -180},
     ]
 
     for trade in trades:

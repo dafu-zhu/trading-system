@@ -260,7 +260,9 @@ class TestOrderGateway:
         gateway.log_order_filled("2", "MSFT", 50, 300.50)
 
         gateway.log_order_sent("3", "AAPL", "sell", "market", 50, 155.0)
-        gateway.log_order_rejected("3", "AAPL", "sell", "market", 50, 155.0, "Rate limit")
+        gateway.log_order_rejected(
+            "3", "AAPL", "sell", "market", 50, 155.0, "Rate limit"
+        )
 
         summary = gateway.get_fill_summary()
 

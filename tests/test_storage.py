@@ -152,16 +152,13 @@ class TestBarStorage:
         storage.save_bars(sample_bars)
 
         assert storage.has_data(
-            "AAPL", Timeframe.DAY_1,
-            datetime(2024, 1, 1), datetime(2024, 1, 5)
+            "AAPL", Timeframe.DAY_1, datetime(2024, 1, 1), datetime(2024, 1, 5)
         )
         assert not storage.has_data(
-            "AAPL", Timeframe.DAY_1,
-            datetime(2024, 2, 1), datetime(2024, 2, 5)
+            "AAPL", Timeframe.DAY_1, datetime(2024, 2, 1), datetime(2024, 2, 5)
         )
         assert not storage.has_data(
-            "MSFT", Timeframe.DAY_1,
-            datetime(2024, 1, 1), datetime(2024, 1, 5)
+            "MSFT", Timeframe.DAY_1, datetime(2024, 1, 1), datetime(2024, 1, 5)
         )
 
     def test_get_bar_count(self, storage, sample_bars):
@@ -269,8 +266,7 @@ class TestBarStorage:
 
         # Retrieve and check updated values
         bars = storage.get_bars(
-            "AAPL", Timeframe.DAY_1,
-            datetime(2024, 1, 2), datetime(2024, 1, 3)
+            "AAPL", Timeframe.DAY_1, datetime(2024, 1, 2), datetime(2024, 1, 3)
         )
         assert bars[0].high == 190.0
         assert bars[0].close == 189.0
@@ -295,20 +291,27 @@ class TestBarStorage:
                 symbol="AAPL",
                 timestamp=datetime(2024, 1, 3, 9, 30),
                 timeframe=Timeframe.DAY_1,
-                open=186.0, high=187.0, low=185.5, close=186.5, volume=45000000,
+                open=186.0,
+                high=187.0,
+                low=185.5,
+                close=186.5,
+                volume=45000000,
             ),
             Bar(
                 symbol="AAPL",
                 timestamp=datetime(2024, 1, 2, 9, 30),
                 timeframe=Timeframe.DAY_1,
-                open=185.0, high=186.5, low=184.0, close=186.0, volume=50000000,
+                open=185.0,
+                high=186.5,
+                low=184.0,
+                close=186.0,
+                volume=50000000,
             ),
         ]
         storage.save_bars(bars)
 
         retrieved = storage.get_bars(
-            "AAPL", Timeframe.DAY_1,
-            datetime(2024, 1, 1), datetime(2024, 1, 5)
+            "AAPL", Timeframe.DAY_1, datetime(2024, 1, 1), datetime(2024, 1, 5)
         )
 
         assert retrieved[0].timestamp < retrieved[1].timestamp

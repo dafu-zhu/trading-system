@@ -37,7 +37,9 @@ class ExecutionReport:
     completed_trades: int = 0
     failed_trades: int = 0
     partial_trades: int = 0
-    vwap_performance: dict[str, float] = field(default_factory=dict)  # symbol -> bps vs VWAP
+    vwap_performance: dict[str, float] = field(
+        default_factory=dict
+    )  # symbol -> bps vs VWAP
     slippage: dict[str, float] = field(default_factory=dict)  # symbol -> slippage bps
     total_notional: float = 0.0
     execution_time_seconds: float = 0.0
@@ -100,7 +102,9 @@ class TWAPExecutor:
         self._slices = []
         for trade in plan.trades:
             slices = self._split_into_slices(trade, self.num_slices)
-            scheduled = self._schedule_slices(slices, plan.start_time, plan.aggressive_time)
+            scheduled = self._schedule_slices(
+                slices, plan.start_time, plan.aggressive_time
+            )
             self._slices.extend(scheduled)
 
         logger.info(
@@ -247,7 +251,10 @@ class TWAPExecutor:
                         if slice_obj.symbol not in fills_by_symbol:
                             fills_by_symbol[slice_obj.symbol] = []
                         fills_by_symbol[slice_obj.symbol].append(
-                            (int(result.filled_quantity), result.filled_avg_price or 0.0)
+                            (
+                                int(result.filled_quantity),
+                                result.filled_avg_price or 0.0,
+                            )
                         )
 
                 except Exception as e:

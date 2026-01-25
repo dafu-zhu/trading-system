@@ -110,7 +110,9 @@ def _validate_config(
 
     valid_refresh = {"daily", "hourly"}
     if refresh not in valid_refresh:
-        raise ValueError(f"Invalid refresh frequency: {refresh}. Must be one of {valid_refresh}")
+        raise ValueError(
+            f"Invalid refresh frequency: {refresh}. Must be one of {valid_refresh}"
+        )
 
     if max_positions < 1:
         raise ValueError(f"max_positions must be >= 1, got {max_positions}")

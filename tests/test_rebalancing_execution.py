@@ -297,12 +297,10 @@ class TestExecutionMonitor:
     def test_slippage_report(self, monitor):
         """Test slippage is calculated correctly per symbol."""
         monitor.track_fill(
-            "AAPL", "buy", 100, 181.00, datetime.now(),
-            expected_price=180.00
+            "AAPL", "buy", 100, 181.00, datetime.now(), expected_price=180.00
         )
         monitor.track_fill(
-            "MSFT", "buy", 50, 382.00, datetime.now(),
-            expected_price=380.00
+            "MSFT", "buy", 50, 382.00, datetime.now(), expected_price=380.00
         )
 
         report = monitor.get_slippage_report()
@@ -314,10 +312,12 @@ class TestExecutionMonitor:
 
     def test_completion_status(self, monitor):
         """Test completion status tracking."""
-        monitor.set_planned_trades([
-            {"symbol": "AAPL", "quantity": 100, "side": "buy"},
-            {"symbol": "MSFT", "quantity": 50, "side": "buy"},
-        ])
+        monitor.set_planned_trades(
+            [
+                {"symbol": "AAPL", "quantity": 100, "side": "buy"},
+                {"symbol": "MSFT", "quantity": 50, "side": "buy"},
+            ]
+        )
 
         # Complete one trade
         monitor.track_fill("AAPL", "buy", 100, 180.00, datetime.now())

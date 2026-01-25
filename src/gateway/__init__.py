@@ -4,8 +4,8 @@ from gateway.coinbase_data_gateway import CoinbaseDataGateway
 from gateway.finnhub_data_gateway import FinnhubDataGateway
 
 __all__ = [
-    'AlpacaTradingGateway',
-    'AlpacaDataGateway',
-    'CoinbaseDataGateway',
-    'FinnhubDataGateway',
+    "AlpacaTradingGateway",
+    "AlpacaDataGateway",
+    "CoinbaseDataGateway",
+    "FinnhubDataGateway",
 ]

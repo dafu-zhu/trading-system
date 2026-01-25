@@ -86,7 +86,9 @@ class RateLimitedOrderQueue:
             order: Order to queue
         """
         heapq.heappush(self._queue, order)
-        logger.debug(f"Enqueued {order.side.value} {order.quantity} {order.symbol} (priority={order.priority})")
+        logger.debug(
+            f"Enqueued {order.side.value} {order.quantity} {order.symbol} (priority={order.priority})"
+        )
 
     def enqueue_new(
         self,
@@ -151,7 +153,9 @@ class RateLimitedOrderQueue:
             processed += 1
 
         if processed > 0:
-            logger.info(f"Processed {processed} orders ({self.get_pending_count()} remaining)")
+            logger.info(
+                f"Processed {processed} orders ({self.get_pending_count()} remaining)"
+            )
 
         return results
 

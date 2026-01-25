@@ -130,10 +130,7 @@ class FinnhubDataGateway(DataGateway):
 
                 # Subscribe to symbols
                 for symbol in symbols:
-                    subscribe_msg = json.dumps({
-                        "type": "subscribe",
-                        "symbol": symbol
-                    })
+                    subscribe_msg = json.dumps({"type": "subscribe", "symbol": symbol})
                     await ws.send(subscribe_msg)
                     logger.info("Subscribed to %s", symbol)
 
@@ -170,7 +167,7 @@ class FinnhubDataGateway(DataGateway):
         symbols: list[str] | list[SymbolConfig],
         callback: Callable[[MarketDataPoint], None],
         data_type: DataType = DataType.TRADES,
-        default_asset_type: AssetType = AssetType.STOCK
+        default_asset_type: AssetType = AssetType.STOCK,
     ) -> None:
         """
         Stream real-time market data (blocking).
@@ -189,7 +186,9 @@ class FinnhubDataGateway(DataGateway):
                 symbol_strings.append(sym)
 
         if data_type != DataType.TRADES:
-            logger.warning("Finnhub only supports TRADES, ignoring data_type=%s", data_type)
+            logger.warning(
+                "Finnhub only supports TRADES, ignoring data_type=%s", data_type
+            )
 
         self._stream_callback = callback
         self._subscribed_symbols = set(symbol_strings)
@@ -234,9 +233,7 @@ class FinnhubDataGateway(DataGateway):
 
         # Close WebSocket if running
         if self._websocket and self._loop:
-            asyncio.run_coroutine_threadsafe(
-                self._websocket.close(), self._loop
-            )
+            asyncio.run_coroutine_threadsafe(self._websocket.close(), self._loop)
 
         if self._stream_thread and self._stream_thread.is_alive():
             self._stream_thread.join(timeout=5)
@@ -256,7 +253,7 @@ class FinnhubDataGateway(DataGateway):
     def get_market_calendar(self, start, end) -> list[MarketCalendarDay]:
         """Not implemented - use Alpaca for market calendar."""
         return []
-    
+
     def replay_historical(self, symbols, callback, timeframe, start, end, speed=1.0):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support historical replay. "

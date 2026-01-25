@@ -55,7 +55,7 @@ class TradingConfig:
         if self.api_secret is None:
             self.api_secret = os.getenv("ALPACA_API_SECRET")
         if os.getenv("ALPACA_BASE_URL"):
-            self.base_url = os.getenv("ALPACA_BASE_URL") # type: ignore
+            self.base_url = os.getenv("ALPACA_BASE_URL")  # type: ignore
 
     def validate(self) -> tuple[bool, str]:
         """
@@ -233,9 +233,7 @@ class LiveEngineConfig:
                     AssetType.CRYPTO if asset_type_str == "crypto" else AssetType.STOCK
                 )
                 data_type_str = sym_data.get("data_type")
-                data_type = (
-                    DataType(data_type_str.lower()) if data_type_str else None
-                )
+                data_type = DataType(data_type_str.lower()) if data_type_str else None
                 symbol_configs.append(
                     SymbolConfig(
                         symbol=sym_data["symbol"],
@@ -383,7 +381,11 @@ class LiveEngineConfig:
         return True, ""
 
     def __repr__(self) -> str:
-        mode = "DRY_RUN" if self.trading.dry_run else ("PAPER" if self.trading.paper_mode else "LIVE")
+        mode = (
+            "DRY_RUN"
+            if self.trading.dry_run
+            else ("PAPER" if self.trading.paper_mode else "LIVE")
+        )
         return (
             f"LiveEngineConfig(mode={mode}, "
             f"trading={self.enable_trading}, "

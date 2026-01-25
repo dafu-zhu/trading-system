@@ -4,6 +4,7 @@ Alpaca Trading Gateway implementation.
 Provides order submission, cancellation, and account/position queries
 via the Alpaca API.
 """
+
 from __future__ import annotations
 
 import os
@@ -123,7 +124,7 @@ class AlpacaTradingGateway(TradingGateway):
         if not self.is_connected():
             raise RuntimeError("Not connected to Alpaca. Call connect() first.")
 
-    @property 
+    @property
     def _valid_client(self) -> TradingClient:
         if self._client is None:
             raise RuntimeError("Not connected")
@@ -171,7 +172,9 @@ class AlpacaTradingGateway(TradingGateway):
             status=self._map_order_status(order.status),
             submitted_at=order.submitted_at,
             filled_at=order.filled_at,
-            filled_avg_price=float(order.filled_avg_price) if order.filled_avg_price else None,
+            filled_avg_price=float(order.filled_avg_price)
+            if order.filled_avg_price
+            else None,
         )
 
     def _map_alpaca_order_type(self, order_type: AlpacaOrderType) -> OrderType:
@@ -240,7 +243,9 @@ class AlpacaTradingGateway(TradingGateway):
                 )
             elif order_type == OrderType.STOP_LIMIT:
                 if limit_price is None or stop_price is None:
-                    raise ValueError("limit_price and stop_price required for STOP_LIMIT orders")
+                    raise ValueError(
+                        "limit_price and stop_price required for STOP_LIMIT orders"
+                    )
                 request = StopLimitOrderRequest(
                     symbol=symbol,
                     qty=quantity,

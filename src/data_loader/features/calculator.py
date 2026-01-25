@@ -16,6 +16,7 @@ from models import Bar
 @dataclass
 class FeatureParams:
     """Parameters for feature calculation."""
+
     # MACD
     macd_fast: int = 12
     macd_slow: int = 26
@@ -51,22 +52,22 @@ class FeatureCalculator:
             return pd.DataFrame()
 
         data = {
-            'open': [b.open for b in bars],
-            'high': [b.high for b in bars],
-            'low': [b.low for b in bars],
-            'close': [b.close for b in bars],
-            'volume': [b.volume for b in bars],
-            'symbol': [b.symbol for b in bars],
+            "open": [b.open for b in bars],
+            "high": [b.high for b in bars],
+            "low": [b.low for b in bars],
+            "close": [b.close for b in bars],
+            "volume": [b.volume for b in bars],
+            "symbol": [b.symbol for b in bars],
         }
 
         # Add optional fields if present
         if any(b.vwap is not None for b in bars):
-            data['vwap'] = [b.vwap for b in bars]
+            data["vwap"] = [b.vwap for b in bars]
         if any(b.trade_count is not None for b in bars):
-            data['trade_count'] = [b.trade_count for b in bars]
+            data["trade_count"] = [b.trade_count for b in bars]
 
         df = pd.DataFrame(data, index=[b.timestamp for b in bars])
-        df.index.name = 'timestamp'
+        df.index.name = "timestamp"
         return df.sort_index()
 
     @classmethod
@@ -121,16 +122,22 @@ class FeatureCalculator:
             return df
 
         feature_handlers = {
-            'macd': lambda: cls.add_macd(df, params.macd_fast, params.macd_slow, params.macd_signal),
-            'rsi': lambda: cls.add_rsi(df, params.rsi_window),
-            'ma': lambda: cls.add_moving_averages(df, params.ma_windows),
-            'moving_average': lambda: cls.add_moving_averages(df, params.ma_windows),
-            'moving_averages': lambda: cls.add_moving_averages(df, params.ma_windows),
-            'bollinger': lambda: cls.add_bollinger_bands(df, params.bb_window, params.bb_std),
-            'bb': lambda: cls.add_bollinger_bands(df, params.bb_window, params.bb_std),
-            'bollinger_bands': lambda: cls.add_bollinger_bands(df, params.bb_window, params.bb_std),
-            'atr': lambda: cls.add_atr(df, params.atr_window),
-            'returns': lambda: cls.add_returns(df),
+            "macd": lambda: cls.add_macd(
+                df, params.macd_fast, params.macd_slow, params.macd_signal
+            ),
+            "rsi": lambda: cls.add_rsi(df, params.rsi_window),
+            "ma": lambda: cls.add_moving_averages(df, params.ma_windows),
+            "moving_average": lambda: cls.add_moving_averages(df, params.ma_windows),
+            "moving_averages": lambda: cls.add_moving_averages(df, params.ma_windows),
+            "bollinger": lambda: cls.add_bollinger_bands(
+                df, params.bb_window, params.bb_std
+            ),
+            "bb": lambda: cls.add_bollinger_bands(df, params.bb_window, params.bb_std),
+            "bollinger_bands": lambda: cls.add_bollinger_bands(
+                df, params.bb_window, params.bb_std
+            ),
+            "atr": lambda: cls.add_atr(df, params.atr_window),
+            "returns": lambda: cls.add_returns(df),
         }
 
         for feature in features:
@@ -154,11 +161,11 @@ class FeatureCalculator:
 
         Adds columns: macd, macd_signal, macd_histogram
         """
-        exp_fast = df['close'].ewm(span=fast_period, adjust=False).mean()
-        exp_slow = df['close'].ewm(span=slow_period, adjust=False).mean()
-        df['macd'] = exp_fast - exp_slow
-        df['macd_signal'] = df['macd'].ewm(span=signal_period, adjust=False).mean()
-        df['macd_histogram'] = df['macd'] - df['macd_signal']
+        exp_fast = df["close"].ewm(span=fast_period, adjust=False).mean()
+        exp_slow = df["close"].ewm(span=slow_period, adjust=False).mean()
+        df["macd"] = exp_fast - exp_slow
+        df["macd_signal"] = df["macd"].ewm(span=signal_period, adjust=False).mean()
+        df["macd_histogram"] = df["macd"] - df["macd_signal"]
 
     @staticmethod
     def add_rsi(df: pd.DataFrame, window: int = 14) -> None:
@@ -167,11 +174,11 @@ class FeatureCalculator:
 
         Adds column: rsi
         """
-        delta = df['close'].diff()
+        delta = df["close"].diff()
         gain = delta.where(delta > 0, 0).rolling(window=window).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
         rs = gain / loss
-        df['rsi'] = 100 - (100 / (1 + rs))
+        df["rsi"] = 100 - (100 / (1 + rs))
 
     @staticmethod
     def add_moving_averages(
@@ -185,8 +192,8 @@ class FeatureCalculator:
         """
         for window in windows:
             if len(df) >= window:
-                df[f'sma_{window}'] = df['close'].rolling(window=window).mean()
-                df[f'ema_{window}'] = df['close'].ewm(span=window, adjust=False).mean()
+                df[f"sma_{window}"] = df["close"].rolling(window=window).mean()
+                df[f"ema_{window}"] = df["close"].ewm(span=window, adjust=False).mean()
 
     @staticmethod
     def add_bollinger_bands(
@@ -199,12 +206,14 @@ class FeatureCalculator:
 
         Adds columns: bb_middle, bb_upper, bb_lower, bb_width, bb_position
         """
-        df['bb_middle'] = df['close'].rolling(window=window).mean()
-        rolling_std = df['close'].rolling(window=window).std()
-        df['bb_upper'] = df['bb_middle'] + (rolling_std * num_std)
-        df['bb_lower'] = df['bb_middle'] - (rolling_std * num_std)
-        df['bb_width'] = df['bb_upper'] - df['bb_lower']
-        df['bb_position'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
+        df["bb_middle"] = df["close"].rolling(window=window).mean()
+        rolling_std = df["close"].rolling(window=window).std()
+        df["bb_upper"] = df["bb_middle"] + (rolling_std * num_std)
+        df["bb_lower"] = df["bb_middle"] - (rolling_std * num_std)
+        df["bb_width"] = df["bb_upper"] - df["bb_lower"]
+        df["bb_position"] = (df["close"] - df["bb_lower"]) / (
+            df["bb_upper"] - df["bb_lower"]
+        )
 
     @staticmethod
     def add_atr(df: pd.DataFrame, window: int = 14) -> None:
@@ -213,11 +222,11 @@ class FeatureCalculator:
 
         Adds column: atr
         """
-        high_low = df['high'] - df['low']
-        high_close = (df['high'] - df['close'].shift(1)).abs()
-        low_close = (df['low'] - df['close'].shift(1)).abs()
+        high_low = df["high"] - df["low"]
+        high_close = (df["high"] - df["close"].shift(1)).abs()
+        low_close = (df["low"] - df["close"].shift(1)).abs()
         true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-        df['atr'] = true_range.rolling(window=window).mean()
+        df["atr"] = true_range.rolling(window=window).mean()
 
     @staticmethod
     def add_returns(df: pd.DataFrame) -> None:
@@ -226,5 +235,5 @@ class FeatureCalculator:
 
         Adds columns: returns, log_returns
         """
-        df['returns'] = df['close'].pct_change()
-        df['log_returns'] = np.log(df['close'] / df['close'].shift(1))
+        df["returns"] = df["close"].pct_change()
+        df["log_returns"] = np.log(df["close"] / df["close"].shift(1))

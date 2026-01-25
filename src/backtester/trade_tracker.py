@@ -2,6 +2,7 @@
 Trade Tracker: Converts order fills into complete round-trip trades.
 Matches entry and exit orders to calculate PnL and track trade lifecycle.
 """
+
 from typing import List, Dict
 from datetime import datetime
 from collections import defaultdict
@@ -30,7 +31,7 @@ class TradeTracker:
         filled_qty: float,
         fill_price: float,
         timestamp: datetime,
-        order_id: int
+        order_id: int,
     ) -> None:
         """
         Process a filled order and match it with existing positions to create trades.
@@ -45,7 +46,9 @@ class TradeTracker:
         """
         if side == OrderSide.BUY:
             # Opening a long position - add to open positions
-            self.open_positions[symbol].append((filled_qty, fill_price, timestamp, order_id))
+            self.open_positions[symbol].append(
+                (filled_qty, fill_price, timestamp, order_id)
+            )
             logger.debug(f"Opened position: {symbol} {filled_qty} @ ${fill_price:.2f}")
 
         elif side == OrderSide.SELL:
@@ -54,32 +57,39 @@ class TradeTracker:
 
             while remaining_qty > 0 and self.open_positions[symbol]:
                 # Get oldest position (FIFO)
-                entry_qty, entry_price, entry_time, entry_order_id = self.open_positions[symbol][0]
+                entry_qty, entry_price, entry_time, entry_order_id = (
+                    self.open_positions[symbol][0]
+                )
 
                 # Match quantity
                 matched_qty = min(remaining_qty, entry_qty)
 
                 # Create completed trade
                 pnl = matched_qty * (fill_price - entry_price)
-                pnl_pct = ((fill_price - entry_price) / entry_price) if entry_price > 0 else 0
+                pnl_pct = (
+                    ((fill_price - entry_price) / entry_price) if entry_price > 0 else 0
+                )
 
                 trade = {
-                    'symbol': symbol,
-                    'entry_time': entry_time,
-                    'exit_time': timestamp,
-                    'entry_price': entry_price,
-                    'exit_price': fill_price,
-                    'quantity': matched_qty,
-                    'side': 'LONG',  # Currently only handling long trades
-                    'pnl': pnl,
-                    'return': pnl_pct,
-                    'entry_order_id': entry_order_id,
-                    'exit_order_id': order_id,
-                    'holding_period': (timestamp - entry_time).total_seconds() / 86400,  # days
+                    "symbol": symbol,
+                    "entry_time": entry_time,
+                    "exit_time": timestamp,
+                    "entry_price": entry_price,
+                    "exit_price": fill_price,
+                    "quantity": matched_qty,
+                    "side": "LONG",  # Currently only handling long trades
+                    "pnl": pnl,
+                    "return": pnl_pct,
+                    "entry_order_id": entry_order_id,
+                    "exit_order_id": order_id,
+                    "holding_period": (timestamp - entry_time).total_seconds()
+                    / 86400,  # days
                 }
 
                 self.completed_trades.append(trade)
-                logger.debug(f"Closed trade: {symbol} {matched_qty} @ ${entry_price:.2f} -> ${fill_price:.2f}, PnL: ${pnl:.2f}")
+                logger.debug(
+                    f"Closed trade: {symbol} {matched_qty} @ ${entry_price:.2f} -> ${fill_price:.2f}, PnL: ${pnl:.2f}"
+                )
 
                 # Update remaining quantities
                 remaining_qty -= matched_qty
@@ -90,12 +100,19 @@ class TradeTracker:
                     self.open_positions[symbol].pop(0)
                 else:
                     # Update the position with reduced quantity
-                    self.open_positions[symbol][0] = (entry_qty, entry_price, entry_time, entry_order_id)
+                    self.open_positions[symbol][0] = (
+                        entry_qty,
+                        entry_price,
+                        entry_time,
+                        entry_order_id,
+                    )
 
             # If we still have remaining quantity, it means we're opening a short position
             # For now, we'll log a warning as the current system doesn't handle shorts
             if remaining_qty > 0:
-                logger.warning(f"Sell order exceeded long position for {symbol}, remaining: {remaining_qty:.2f} - short selling not implemented")
+                logger.warning(
+                    f"Sell order exceeded long position for {symbol}, remaining: {remaining_qty:.2f} - short selling not implemented"
+                )
 
     def get_trades(self) -> List[Dict]:
         """Get all completed trades."""
@@ -111,4 +128,4 @@ class TradeTracker:
 
     def get_total_pnl(self) -> float:
         """Get total PnL from all completed trades."""
-        return sum(trade['pnl'] for trade in self.completed_trades)
+        return sum(trade["pnl"] for trade in self.completed_trades)

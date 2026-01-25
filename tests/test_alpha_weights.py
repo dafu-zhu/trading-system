@@ -31,9 +31,7 @@ class TestWeightResult:
 
     def test_weights_tolerance(self):
         """Test WeightResult accepts small floating point errors."""
-        result = WeightResult(
-            weights={"a": 0.333333, "b": 0.333333, "c": 0.333334}
-        )
+        result = WeightResult(weights={"a": 0.333333, "b": 0.333333, "c": 0.333334})
         assert sum(result.weights.values()) == pytest.approx(1.0)
 
 

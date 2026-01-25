@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def path(end_point: str) -> Path:
     """Go back to certain directory from the current file"""
     root_path = Path(__file__).resolve()
@@ -11,5 +12,6 @@ def path(end_point: str) -> Path:
 
     return root_path
 
-def get_root(root_name: str="trading-system") -> Path:
+
+def get_root(root_name: str = "trading-system") -> Path:
     return path(root_name)

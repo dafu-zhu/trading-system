@@ -5,6 +5,7 @@ from enum import Enum
 |34=12|35=D|38=10|40=1|49=SENDER|52=20230613-14:01:37.330|54=1|55=SPY|56=ALPACA|59=1|10=030|
 """
 
+
 class FixTag(Enum):
     BEGIN_STRING = "8"
     BODY_LENGTH = "9"
@@ -45,14 +46,14 @@ class FixParser:
     REQUIRED_TAGS = {
         FixTag.BEGIN_STRING.value,
         FixTag.MSG_TYPE.value,
-        FixTag.CHECK_SUM.value
+        FixTag.CHECK_SUM.value,
     }
 
     ORDER_REQUIRED_TAGS = {
         FixTag.SYMBOL.value,
         FixTag.SIDE.value,
         FixTag.ORD_TYPE.value,
-        FixTag.ORDER_QTY.value
+        FixTag.ORDER_QTY.value,
     }
 
     def __init__(self, delimiter: str, validate: bool = True):
@@ -68,7 +69,7 @@ class FixParser:
         for field in fields:
             if not field:
                 continue
-            key, value = field.split('=', 1)
+            key, value = field.split("=", 1)
             parsed[key] = value
 
         if self.validate:
@@ -86,7 +87,6 @@ class FixParser:
             missing = self.ORDER_REQUIRED_TAGS - set(parsed.keys())
             if missing:
                 raise ValueError("Missing order required tags in message")
-
 
 
 if __name__ == "__main__":

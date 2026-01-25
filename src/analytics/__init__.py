@@ -4,9 +4,9 @@ from analytics.visualizer import BacktestVisualizer
 from analytics.report import MarkdownReportGenerator
 
 __all__ = [
-    'PerformanceMetrics',
-    'format_metrics',
-    'BacktestAnalyzer',
-    'BacktestVisualizer',
-    'MarkdownReportGenerator',
+    "PerformanceMetrics",
+    "format_metrics",
+    "BacktestAnalyzer",
+    "BacktestVisualizer",
+    "MarkdownReportGenerator",
 ]

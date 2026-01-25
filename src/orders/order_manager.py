@@ -7,12 +7,9 @@ from portfolio import Portfolio, Position
 from orders.order import Order, OrderSide
 from risk.risk_engine import RiskEngine
 
+
 class OrderManager:
-    def __init__(
-            self,
-            max_order_size: float=1000,
-            max_position: float=2000
-    ):
+    def __init__(self, max_order_size: float = 1000, max_position: float = 2000):
         self.max_order_size = max_order_size
         self.max_position = max_position
 
@@ -47,11 +44,7 @@ class OrderManager:
         2. position exceeds the cap after execution
         :return: Safe or not
         """
-        risk_engine = RiskEngine(
-            portfolio,
-            self.max_order_size,
-            self.max_position
-        )
+        risk_engine = RiskEngine(portfolio, self.max_order_size, self.max_position)
         res = risk_engine.check(order)
         return res
 

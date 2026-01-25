@@ -317,18 +317,22 @@ class TestAlphaConfig:
     def test_validation_threshold_order(self):
         """Test validation checks threshold order."""
         with pytest.raises(ValueError, match="long_threshold"):
-            parse_alpha_config({
-                "alphas": ["momentum_20d"],
-                "thresholds": {"long": -0.5, "short": 0.5},
-            })
+            parse_alpha_config(
+                {
+                    "alphas": ["momentum_20d"],
+                    "thresholds": {"long": -0.5, "short": 0.5},
+                }
+            )
 
     def test_validation_refresh_frequency(self):
         """Test validation checks refresh frequency."""
         with pytest.raises(ValueError, match="Invalid refresh"):
-            parse_alpha_config({
-                "alphas": ["momentum_20d"],
-                "refresh": "weekly",
-            })
+            parse_alpha_config(
+                {
+                    "alphas": ["momentum_20d"],
+                    "refresh": "weekly",
+                }
+            )
 
     def test_save_and_load_config(self, tmp_path, valid_config_dict):
         """Test saving and loading config."""

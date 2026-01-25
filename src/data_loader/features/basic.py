@@ -20,6 +20,7 @@ class BasicFeatures:
         9. momentum: ['momentum_{window}', 'roc_{window}']
         10. atr: ['atr']
     """
+
     # Feature group names
     RETURNS = "returns"
     PRICE_CHANGE = "price_change"
@@ -50,19 +51,19 @@ class BasicFeatures:
         ),
         VOLUME: FeatureConfig(
             name=VOLUME,
-            params={'volume_sma_window': 20},
+            params={"volume_sma_window": 20},
         ),
         BOLLINGER: FeatureConfig(
             name=BOLLINGER,
-            params={'window': 20, 'num_std': 2},
+            params={"window": 20, "num_std": 2},
         ),
         RSI: FeatureConfig(
             name=RSI,
-            params={'window': 14},
+            params={"window": 14},
         ),
         MACD: FeatureConfig(
             name=MACD,
-            params={'fast_period': 12, 'slow_period': 26, 'signal_period': 9},
+            params={"fast_period": 12, "slow_period": 26, "signal_period": 9},
         ),
         MOMENTUM: FeatureConfig(
             name=MOMENTUM,
@@ -70,13 +71,12 @@ class BasicFeatures:
         ),
         ATR: FeatureConfig(
             name=ATR,
-            params={'window': 14},
+            params={"window": 14},
         ),
     }
 
     @classmethod
     def get_config(cls, feature_name: str, **kwargs) -> FeatureConfig:
-
         if feature_name not in cls.DEFAULT_CONFIGS:
             raise ValueError(f"Unknown feature: {feature_name}")
 
@@ -85,18 +85,13 @@ class BasicFeatures:
 
         # Create a new config with overrides
         # Put general `windows` in the right place
-        windows = kwargs.pop('windows', default_config.windows)
+        windows = kwargs.pop("windows", default_config.windows)
         params = {**default_config.params, **kwargs}
 
-        return FeatureConfig(
-            name=feature_name,
-            windows=windows,
-            params=params
-        )
+        return FeatureConfig(name=feature_name, windows=windows, params=params)
 
     @classmethod
     def get_default_params(cls, feature_name: str) -> dict:
-
         if feature_name not in cls.DEFAULT_CONFIGS:
             raise ValueError(f"Unknown feature: {feature_name}")
 
@@ -104,7 +99,7 @@ class BasicFeatures:
         result = {}
 
         if config.windows is not None:
-            result['windows'] = config.windows
+            result["windows"] = config.windows
         if config.params:
             result.update(config.params)
 
@@ -121,9 +116,8 @@ class BasicFeatures:
         df: pd.DataFrame,
         features: list[str],
         col_mapping: Optional[ColumnMapping] = None,
-        **feature_kwargs
+        **feature_kwargs,
     ) -> pd.DataFrame:
-
         if col_mapping is None:
             col_mapping = ColumnMapping()
 
@@ -136,129 +130,156 @@ class BasicFeatures:
             # Get feature-specific kwargs (e.g., 'rsi_window' -> 'window' for RSI)
             feature_prefix = f"{feature}_"
             specific_kwargs = {
-                k.replace(feature_prefix, ''): v
+                k.replace(feature_prefix, ""): v
                 for k, v in feature_kwargs.items()
                 if k.startswith(feature_prefix)
             }
 
             # Also check for general 'windows' parameter
-            if 'windows' in feature_kwargs and feature in [cls.MOVING_AVERAGE, cls.VOLATILITY, cls.MOMENTUM]:
-                specific_kwargs['windows'] = feature_kwargs['windows']
+            if "windows" in feature_kwargs and feature in [
+                cls.MOVING_AVERAGE,
+                cls.VOLATILITY,
+                cls.MOMENTUM,
+            ]:
+                specific_kwargs["windows"] = feature_kwargs["windows"]
 
             # Get config with overrides
             config = cls.get_config(feature, **specific_kwargs)
 
             # Call the appropriate calculation method
-            method_name = f'_calc_{feature}'
+            method_name = f"_calc_{feature}"
             if hasattr(cls, method_name):
                 method = getattr(cls, method_name)
                 method(df_result, config, col_mapping)
             else:
-                raise NotImplementedError(f"Calculation method {method_name} not implemented")
+                raise NotImplementedError(
+                    f"Calculation method {method_name} not implemented"
+                )
 
         return df_result
 
     @staticmethod
-    def _calc_returns(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_returns(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate returns features."""
-        df['returns'] = df[cols.close].pct_change()
-        df['log_returns'] = np.log(df[cols.close] / df[cols.close].shift(1))
+        df["returns"] = df[cols.close].pct_change()
+        df["log_returns"] = np.log(df[cols.close] / df[cols.close].shift(1))
 
     @staticmethod
-    def _calc_price_change(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_price_change(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate price change features."""
-        df['price_change'] = df[cols.close].diff()
-        df['high_low_spread'] = df[cols.high] - df[cols.low]
-        df['open_close_spread'] = df[cols.close] - df[cols.open]
+        df["price_change"] = df[cols.close].diff()
+        df["high_low_spread"] = df[cols.high] - df[cols.low]
+        df["open_close_spread"] = df[cols.close] - df[cols.open]
 
     @staticmethod
-    def _calc_moving_average(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_moving_average(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate moving average features."""
         if config.windows is None:
             raise ValueError("Moving average requires 'windows' parameter")
 
         for window in config.windows:
-            df[f'sma_{window}'] = df[cols.close].rolling(window=window).mean()
-            df[f'ema_{window}'] = df[cols.close].ewm(span=window, adjust=False).mean()
+            df[f"sma_{window}"] = df[cols.close].rolling(window=window).mean()
+            df[f"ema_{window}"] = df[cols.close].ewm(span=window, adjust=False).mean()
 
     @staticmethod
-    def _calc_volatility(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_volatility(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate volatility features."""
         if config.windows is None:
             raise ValueError("Volatility requires 'windows' parameter")
 
         # Ensure returns exists
-        if 'returns' not in df.columns:
-            df['returns'] = df[cols.close].pct_change()
+        if "returns" not in df.columns:
+            df["returns"] = df[cols.close].pct_change()
 
         for window in config.windows:
-            df[f'volatility_{window}'] = df['returns'].rolling(window=window).std()
+            df[f"volatility_{window}"] = df["returns"].rolling(window=window).std()
 
     @staticmethod
-    def _calc_volume(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_volume(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate volume features."""
-        volume_sma_window = config.params.get('volume_sma_window', 20)
+        volume_sma_window = config.params.get("volume_sma_window", 20)
 
-        df['volume_change'] = df[cols.volume].pct_change()
-        df[f'volume_sma_{volume_sma_window}'] = df[cols.volume].rolling(window=volume_sma_window).mean()
-        df['volume_ratio'] = df[cols.volume] / df[f'volume_sma_{volume_sma_window}']
+        df["volume_change"] = df[cols.volume].pct_change()
+        df[f"volume_sma_{volume_sma_window}"] = (
+            df[cols.volume].rolling(window=volume_sma_window).mean()
+        )
+        df["volume_ratio"] = df[cols.volume] / df[f"volume_sma_{volume_sma_window}"]
 
     @staticmethod
-    def _calc_bollinger(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_bollinger(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate Bollinger Bands features."""
-        window = config.params.get('window', 20)
-        num_std = config.params.get('num_std', 2)
+        window = config.params.get("window", 20)
+        num_std = config.params.get("num_std", 2)
 
-        df['bb_middle'] = df[cols.close].rolling(window=window).mean()
+        df["bb_middle"] = df[cols.close].rolling(window=window).mean()
         rolling_std = df[cols.close].rolling(window=window).std()
-        df['bb_upper'] = df['bb_middle'] + (rolling_std * num_std)
-        df['bb_lower'] = df['bb_middle'] - (rolling_std * num_std)
-        df['bb_width'] = df['bb_upper'] - df['bb_lower']
-        df['bb_position'] = (df[cols.close] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
+        df["bb_upper"] = df["bb_middle"] + (rolling_std * num_std)
+        df["bb_lower"] = df["bb_middle"] - (rolling_std * num_std)
+        df["bb_width"] = df["bb_upper"] - df["bb_lower"]
+        df["bb_position"] = (df[cols.close] - df["bb_lower"]) / (
+            df["bb_upper"] - df["bb_lower"]
+        )
 
     @staticmethod
     def _calc_rsi(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
         """Calculate RSI (Relative Strength Index)."""
-        window = config.params.get('window', 14)
+        window = config.params.get("window", 14)
 
         delta = df[cols.close].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
         rs = gain / loss
-        df['rsi'] = 100 - (100 / (1 + rs))
+        df["rsi"] = 100 - (100 / (1 + rs))
 
     @staticmethod
-    def _calc_macd(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_macd(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate MACD (Moving Average Convergence Divergence)."""
-        fast_period = config.params.get('fast_period', 12)
-        slow_period = config.params.get('slow_period', 26)
-        signal_period = config.params.get('signal_period', 9)
+        fast_period = config.params.get("fast_period", 12)
+        slow_period = config.params.get("slow_period", 26)
+        signal_period = config.params.get("signal_period", 9)
 
         exp1 = df[cols.close].ewm(span=fast_period, adjust=False).mean()
         exp2 = df[cols.close].ewm(span=slow_period, adjust=False).mean()
-        df['macd'] = exp1 - exp2
-        df['macd_signal'] = df['macd'].ewm(span=signal_period, adjust=False).mean()
-        df['macd_histogram'] = df['macd'] - df['macd_signal']
+        df["macd"] = exp1 - exp2
+        df["macd_signal"] = df["macd"].ewm(span=signal_period, adjust=False).mean()
+        df["macd_histogram"] = df["macd"] - df["macd_signal"]
 
     @staticmethod
-    def _calc_momentum(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
+    def _calc_momentum(
+        df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping
+    ) -> None:
         """Calculate momentum features."""
         if config.windows is None:
             raise ValueError("Momentum requires 'windows' parameter")
 
         for window in config.windows:
-            df[f'momentum_{window}'] = df[cols.close] - df[cols.close].shift(window)
-            df[f'roc_{window}'] = ((df[cols.close] - df[cols.close].shift(window)) /
-                                    df[cols.close].shift(window)) * 100
+            df[f"momentum_{window}"] = df[cols.close] - df[cols.close].shift(window)
+            df[f"roc_{window}"] = (
+                (df[cols.close] - df[cols.close].shift(window))
+                / df[cols.close].shift(window)
+            ) * 100
 
     @staticmethod
     def _calc_atr(df: pd.DataFrame, config: FeatureConfig, cols: ColumnMapping) -> None:
         """Calculate ATR (Average True Range)."""
-        window = config.params.get('window', 14)
+        window = config.params.get("window", 14)
 
         high_low = df[cols.high] - df[cols.low]
         high_close = np.abs(df[cols.high] - df[cols.close].shift(1))
         low_close = np.abs(df[cols.low] - df[cols.close].shift(1))
         true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-        df['atr'] = true_range.rolling(window=window).mean()
-
+        df["atr"] = true_range.rolling(window=window).mean()
