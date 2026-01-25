@@ -16,16 +16,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from gateway.alpaca_data_gateway import AlpacaDataGateway
+from gateway.alpaca_trading_gateway import AlpacaTradingGateway
+from strategy.momentum_strategy import MomentumStrategy
+from models import Timeframe, MarketSnapshot, OrderSide, OrderType
+
 # Load environment variables from .env
 load_dotenv()
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from gateway.alpaca_data_gateway import AlpacaDataGateway
-from gateway.alpaca_trading_gateway import AlpacaTradingGateway
-from strategy.momentum_strategy import MomentumStrategy
-from models import Timeframe, MarketSnapshot, OrderSide, OrderType
 
 # Configure logging
 logging.basicConfig(

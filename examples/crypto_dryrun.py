@@ -12,15 +12,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from gateway.alpaca_data_gateway import AlpacaDataGateway
+from strategy.momentum_strategy import MomentumStrategy
+from models import Timeframe, MarketSnapshot
+
 # Load environment variables from .env
 load_dotenv()
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from gateway.alpaca_data_gateway import AlpacaDataGateway
-from strategy.momentum_strategy import MomentumStrategy
-from models import Timeframe, MarketSnapshot, MarketDataPoint
 
 # Configure logging
 logging.basicConfig(
@@ -208,7 +208,7 @@ def main():
     engine = CryptoDryRunEngine(
         data_gateway=data_gateway,
         strategy=strategy,
-        initial_capital=initial_capital,
+        initial_capital=int(initial_capital),
     )
 
     # Run dry-run

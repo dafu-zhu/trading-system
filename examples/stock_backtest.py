@@ -12,17 +12,17 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from gateway.alpaca_data_gateway import AlpacaDataGateway
+from strategy.macd_strategy import MACDStrategy
+from backtester.backtest_engine import BacktestEngine
+from backtester.position_sizer import PercentSizer
+from models import Timeframe, TimeInForce
+
 # Load environment variables from .env
 load_dotenv()
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from gateway.alpaca_data_gateway import AlpacaDataGateway
-from strategy.macd_strategy import MACDStrategy
-from backtester.backtest_engine import BacktestEngine
-from backtester.position_sizer import PercentSizer
-from models import Timeframe
 
 # Configure logging
 logging.basicConfig(
@@ -77,6 +77,7 @@ def main():
         init_capital=initial_capital,
         position_sizer=position_sizer,
         slippage_bps=10,  # 10 basis points slippage
+        time_in_force=TimeInForce.IOC,  # Fill what we can, cancel rest
     )
 
     # Run backtest
@@ -98,7 +99,6 @@ def main():
         trades = results.get('trades', [])
         winning = [t for t in trades if t.get('pnl', 0) > 0]
         losing = [t for t in trades if t.get('pnl', 0) < 0]
-        total_pnl = sum(t.get('pnl', 0) for t in trades)
 
         logger.info(f"Total Trades: {len(trades)}")
         logger.info(f"Winning Trades: {len(winning)}")
@@ -107,9 +107,9 @@ def main():
         win_rate = len(winning) / len(trades) * 100 if trades else 0
         logger.info(f"Win Rate: {win_rate:.1f}%")
 
-        logger.info(f"Total P&L: ${total_pnl:,.2f}")
-
         final_equity = results.get('final_value', initial_capital)
+        total_pnl = final_equity - initial_capital  # Calculate from portfolio change
+        logger.info(f"Total P&L: ${total_pnl:,.2f}")
         logger.info(f"Final Equity: ${final_equity:,.2f}")
 
         total_return = results.get('total_return_pct', 0)

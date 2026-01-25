@@ -7,21 +7,20 @@ Tests dry-run mode: replays historical data without API calls.
 
 import logging
 import sys
-import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+from gateway.alpaca_data_gateway import AlpacaDataGateway
+from strategy.macd_strategy import MACDStrategy
+from models import Timeframe, MarketSnapshot
 
 # Load environment variables from .env
 load_dotenv()
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from gateway.alpaca_data_gateway import AlpacaDataGateway
-from strategy.macd_strategy import MACDStrategy
-from models import Timeframe, MarketSnapshot
 
 # Configure logging
 logging.basicConfig(
@@ -161,7 +160,7 @@ def main():
     engine = DryRunEngine(
         data_gateway=data_gateway,
         strategy=strategy,
-        initial_capital=initial_capital,
+        initial_capital=int(initial_capital),
     )
 
     # Run dry-run

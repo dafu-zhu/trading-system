@@ -13,18 +13,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from gateway.alpaca_data_gateway import AlpacaDataGateway
+from strategy.alpha_strategy import AlphaStrategy, AlphaStrategyConfig
+from data_loader.features.alpha_loader import AlphaLoader, AlphaLoaderConfig
+from models import Timeframe, MarketSnapshot
+
 # Load environment variables from .env
 load_dotenv()
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from gateway.alpaca_data_gateway import AlpacaDataGateway
-from strategy.alpha_strategy import AlphaStrategy, AlphaStrategyConfig
-from data_loader.features.alpha_loader import AlphaLoader, AlphaLoaderConfig
-from backtester.backtest_engine import BacktestEngine
-from backtester.position_sizer import PercentSizer
-from models import Timeframe, MarketSnapshot
 
 # Configure logging
 logging.basicConfig(
@@ -65,7 +63,7 @@ class AlphaBacktestEngine:
         timeframe: Timeframe,
         start: datetime,
         end: datetime,
-    ) -> dict:
+    ) -> dict | None:
         """Run multi-symbol backtest."""
         logger.info(f"Fetching data for {len(symbols)} symbols...")
 
@@ -262,9 +260,9 @@ def main():
 
     logger.info("Initializing alpha strategy...")
     config = AlphaStrategyConfig(
-        alpha_names=["momentum_20d", "mean_reversion"],
-        long_threshold=0.3,
-        short_threshold=-0.3,
+        alpha_names=["momentum_20d"],  # Single alpha (mean_reversion cancels it out)
+        long_threshold=0.1,  # Lower threshold for placeholder data
+        short_threshold=-0.1,
         max_positions=2,
         refresh_frequency="daily",
     )
