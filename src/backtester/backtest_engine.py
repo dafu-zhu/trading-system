@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from models import DataGateway, Timeframe, Bar, MarketSnapshot, Strategy, OrderSide
+from models import DataGateway, Timeframe, Bar, MarketSnapshot, Strategy, OrderSide, TimeInForce
 from orders.order import Order, OrderState
 from orders.order_manager import OrderManager
 from orders.matching_engine import DeterministicMatchingEngine
@@ -36,6 +36,7 @@ class BacktestEngine:
         position_sizer: Optional[PositionSizer] = None,
         slippage_bps: float = 0.0,
         max_volume_pct: float = 0.1,
+        time_in_force: TimeInForce = TimeInForce.IOC,
     ):
         """
         Initialize backtest engine.
@@ -46,10 +47,12 @@ class BacktestEngine:
         :param position_sizer: Position sizing strategy
         :param slippage_bps: Slippage in basis points
         :param max_volume_pct: Max fill as % of bar volume
+        :param time_in_force: Order fill policy (FOK, IOC, GTC)
         """
         self._gateway = gateway
         self._strategy = strategy
         self._init_capital = init_capital
+        self._time_in_force = time_in_force
 
         # Components
         self._portfolio = Portfolio(init_capital)
@@ -66,6 +69,9 @@ class BacktestEngine:
         self._equity_tracker = EquityTracker()
         self._reports: list[dict] = []
         self._current_prices: dict[str, float] = {}
+
+        # Pending orders queue: symbol -> Order
+        self._pending_orders: dict[str, Order] = {}
 
     def run(
         self,
@@ -91,8 +97,10 @@ class BacktestEngine:
         # Stream bars from gateway
         first_bar = True
         bar_count = 0
+        last_timestamp = None
 
         for bar in self._gateway.stream_bars(symbol, timeframe, start, end):
+            last_timestamp = bar.timestamp
             bar_count += 1
             self._matching.set_current_bar(bar)
             self._current_prices[symbol] = bar.close
@@ -102,7 +110,11 @@ class BacktestEngine:
                 self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
                 first_bar = False
 
-            # Generate signal from strategy using MarketSnapshot
+            # Step 1: Try to fill pending orders first (GTC only)
+            if self._time_in_force == TimeInForce.GTC:
+                self._fill_pending_orders(bar)
+
+            # Step 2: Generate signal from strategy using MarketSnapshot
             snapshot = MarketSnapshot(
                 timestamp=bar.timestamp,
                 prices={bar.symbol: bar.close},
@@ -112,9 +124,25 @@ class BacktestEngine:
             signal = signals[0] if signals else None
             action = signal.get('action', 'HOLD') if signal else 'HOLD'
 
-            # Process actionable signals (BUY/SELL)
+            # Step 3: Process new signals
             if signal is not None and action in ('BUY', 'SELL'):
                 side = OrderSide.BUY if action == 'BUY' else OrderSide.SELL
+
+                # For GTC: check if there's a pending order
+                if self._time_in_force == TimeInForce.GTC:
+                    pending = self._pending_orders.get(symbol)
+                    if pending is not None:
+                        # If same direction, skip (let pending order fill)
+                        # If opposite direction, cancel pending and create new
+                        if pending.side != side:
+                            logger.debug(f"Canceling pending {pending.side.name} order, new signal: {side.name}")
+                            del self._pending_orders[symbol]
+                            qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                            if qty > 0:
+                                self._process_order(bar, symbol, side, qty)
+                        # Same direction: skip, let pending fill
+                        continue
+
                 qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
                 if qty > 0:
                     self._process_order(bar, symbol, side, qty)
@@ -122,6 +150,10 @@ class BacktestEngine:
             # Update portfolio and record equity
             self._mark_to_market()
             self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
+
+        # Close all open positions at end of backtest
+        if last_timestamp:
+            self._close_all_positions(last_timestamp)
 
         logger.info(f"Backtest complete: processed {bar_count} bars")
 
@@ -199,13 +231,21 @@ class BacktestEngine:
                 self._equity_tracker.record_tick(ts, self._portfolio.get_total_value())
                 first_snapshot = False
 
+            # Step 1: Try to fill pending orders first (GTC only)
+            if self._time_in_force == TimeInForce.GTC:
+                for symbol in symbols:
+                    bar = bars.get(symbol)
+                    if bar:
+                        self._matching.set_current_bar(bar)
+                        self._fill_pending_orders(bar)
+
             # Build MarketSnapshot
             snapshot = MarketSnapshot(timestamp=ts, prices=prices, bars=bars)
 
-            # Generate signals from strategy
+            # Step 2: Generate signals from strategy
             signals = self._strategy.generate_signals(snapshot)
 
-            # Process each actionable signal
+            # Step 3: Process each actionable signal
             for signal in signals:
                 if signal is None:
                     continue
@@ -215,6 +255,21 @@ class BacktestEngine:
                 if action in ('BUY', 'SELL') and symbol and symbol in bars:
                     side = OrderSide.BUY if action == 'BUY' else OrderSide.SELL
                     bar = bars[symbol]
+
+                    # For GTC: check if there's a pending order
+                    if self._time_in_force == TimeInForce.GTC:
+                        pending = self._pending_orders.get(symbol)
+                        if pending is not None:
+                            if pending.side != side:
+                                logger.debug(f"Canceling pending {pending.side.name} order, new signal: {side.name}")
+                                del self._pending_orders[symbol]
+                                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                                if qty > 0:
+                                    self._matching.set_current_bar(bar)
+                                    self._process_order(bar, symbol, side, qty)
+                            # Same direction: skip, let pending fill
+                            continue
+
                     qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
                     if qty > 0:
                         self._matching.set_current_bar(bar)
@@ -223,6 +278,10 @@ class BacktestEngine:
             # Update portfolio and record equity
             self._mark_to_market()
             self._equity_tracker.record_tick(ts, self._portfolio.get_total_value())
+
+        # Close all open positions at end of backtest
+        if timestamps:
+            self._close_all_positions(timestamps[-1])
 
         logger.info(f"Multi-symbol backtest complete: processed {bar_count} timestamps")
 
@@ -261,6 +320,33 @@ class BacktestEngine:
             'reports': self._reports,
         }
 
+    def _fill_pending_orders(self, bar: Bar) -> None:
+        """Try to fill any pending orders for the current bar's symbol."""
+        symbol = bar.symbol
+        if symbol not in self._pending_orders:
+            return
+
+        order = self._pending_orders[symbol]
+
+        # Update order price to current bar close for matching
+        order.price = bar.close
+
+        # Try to match
+        report = self._matching.match(order)
+        self._reports.append(report)
+
+        status = report.get('status')
+        filled_qty = report.get('filled_qty', 0.0)
+        fill_price = report.get('fill_price', bar.close)
+
+        if filled_qty > 0:
+            self._process_fill(symbol, order.side, filled_qty, fill_price, bar.timestamp, order.order_id)
+
+        # Remove from pending if fully filled
+        if status == 'filled' or order.remaining_qty <= 0:
+            del self._pending_orders[symbol]
+            logger.debug(f"Pending order {order.order_id} fully filled")
+
     def _process_order(
         self,
         bar: Bar,
@@ -289,13 +375,30 @@ class BacktestEngine:
         report = self._matching.match(order)
         self._reports.append(report)
 
-        # Process fill
+        # Process fill based on time_in_force policy
         status = report.get('status')
         filled_qty = report.get('filled_qty', 0.0)
         fill_price = report.get('fill_price', bar.close)
 
-        if status in ['filled', 'partially_filled'] and filled_qty > 0:
-            self._process_fill(symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id)
+        if self._time_in_force == TimeInForce.FOK:
+            # Fill-or-Kill: only accept complete fills
+            if status == 'filled' and filled_qty > 0:
+                self._process_fill(symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id)
+            elif status == 'partially_filled':
+                logger.debug(f"Order {order.order_id} canceled (FOK): insufficient volume")
+        elif self._time_in_force == TimeInForce.IOC:
+            # Immediate-or-Cancel: fill what we can, cancel rest
+            if status in ['filled', 'partially_filled'] and filled_qty > 0:
+                self._process_fill(symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id)
+            if status == 'partially_filled':
+                logger.debug(f"Order {order.order_id} partial fill (IOC): {order.remaining_qty:.6f} canceled")
+        else:  # GTC
+            # Good-Till-Canceled: fill what we can, carry forward rest
+            if status in ['filled', 'partially_filled'] and filled_qty > 0:
+                self._process_fill(symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id)
+            if status == 'partially_filled' and order.remaining_qty > 0:
+                self._pending_orders[symbol] = order
+                logger.debug(f"Order {order.order_id} pending (GTC): {order.remaining_qty:.6f} remaining")
 
     def _process_fill(
         self,
@@ -350,6 +453,44 @@ class BacktestEngine:
                 continue
             if symbol in self._current_prices:
                 self._portfolio.update_price(symbol, self._current_prices[symbol])
+
+    def _close_all_positions(self, timestamp: datetime) -> None:
+        """Force-close all open positions at current prices."""
+        positions_to_close = []
+
+        for pos in self._portfolio.get_positions():
+            symbol = pos['symbol']
+            qty = pos['quantity']
+            if symbol == 'cash' or qty <= 0:
+                continue
+            positions_to_close.append((symbol, qty))
+
+        if not positions_to_close:
+            logger.debug("No open positions to close")
+            return
+
+        for symbol, qty in positions_to_close:
+            price = self._current_prices.get(symbol)
+            if price is None:
+                logger.warning(f"No price for {symbol}, skipping close")
+                continue
+
+            logger.info(f"Closing position: {symbol} {qty:.6f} @ ${price:.2f}")
+
+            # Process as a sell fill in trade tracker
+            self._trade_tracker.process_fill(
+                symbol=symbol,
+                side=OrderSide.SELL,
+                filled_qty=qty,
+                fill_price=price,
+                timestamp=timestamp,
+                order_id=-1,  # Synthetic close order
+            )
+
+            # Update portfolio
+            self._portfolio.update_quantity(symbol, -qty)
+            cash_delta = qty * price
+            self._portfolio.update_quantity("cash", cash_delta)
 
     def _generate_results(
         self,
