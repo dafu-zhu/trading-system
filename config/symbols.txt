@@ -1,0 +1,86 @@
+# Trading System Symbol Universe
+# One symbol per line. Comments start with #
+# Inline comments allowed: AAPL # Apple Inc
+
+# ============================================================================
+# MEGA CAP TECH
+# ============================================================================
+AAPL    # Apple
+MSFT    # Microsoft
+GOOGL   # Alphabet
+AMZN    # Amazon
+NVDA    # NVIDIA
+META    # Meta
+TSLA    # Tesla
+
+# ============================================================================
+# FINANCIALS
+# ============================================================================
+JPM     # JPMorgan Chase
+BAC     # Bank of America
+WFC     # Wells Fargo
+GS      # Goldman Sachs
+MS      # Morgan Stanley
+BLK     # BlackRock
+SCHW    # Charles Schwab
+
+# ============================================================================
+# HEALTHCARE
+# ============================================================================
+UNH     # UnitedHealth
+JNJ     # Johnson & Johnson
+PFE     # Pfizer
+ABBV    # AbbVie
+MRK     # Merck
+LLY     # Eli Lilly
+
+# ============================================================================
+# CONSUMER
+# ============================================================================
+WMT     # Walmart
+HD      # Home Depot
+MCD     # McDonald's
+NKE     # Nike
+SBUX    # Starbucks
+TGT     # Target
+
+# ============================================================================
+# INDUSTRIALS
+# ============================================================================
+CAT     # Caterpillar
+BA      # Boeing
+HON     # Honeywell
+UPS     # UPS
+GE      # GE Aerospace
+RTX     # RTX (Raytheon)
+
+# ============================================================================
+# ENERGY
+# ============================================================================
+XOM     # Exxon Mobil
+CVX     # Chevron
+COP     # ConocoPhillips
+SLB     # Schlumberger
+
+# ============================================================================
+# SEMICONDUCTORS
+# ============================================================================
+AMD     # AMD
+INTC    # Intel
+AVGO    # Broadcom
+QCOM    # Qualcomm
+MU      # Micron
+AMAT    # Applied Materials
+
+# ============================================================================
+# COMMUNICATION
+# ============================================================================
+DIS     # Disney
+NFLX    # Netflix
+CMCSA   # Comcast
+T       # AT&T
+VZ      # Verizon
+
+# ============================================================================
+# Add more symbols below as needed
+# ============================================================================
