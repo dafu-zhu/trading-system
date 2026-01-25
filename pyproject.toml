@@ -18,7 +18,6 @@ dependencies = [
     "pytest-cov>=4.1.0",
     "pytz>=2025.2",
     "pyyaml>=6.0.3",
-    "quickfix>=1.15.1",
     "requests>=2.32.5",
     "scipy>=1.16.3",
     "seaborn>=0.13.2",
@@ -30,6 +29,9 @@ dev = [
     "ruff>=0.8.0",
     "pyright>=1.1.390",
     "bandit>=1.7.0",
+]
+fix = [
+    "quickfix>=1.15.1",
 ]
 
 [tool.pytest.ini_options]
@@ -45,5 +47,7 @@ packages = ["src/trader", "src/logger", "src/analytics"]
 [tool.uv]
 package = true
 
-[tool.uv.sources]
-quickfix = { path = "dependency/quickfix-1.15.1/dist/quickfix-1.15.1-cp313-cp313-macosx_10_13_universal2.whl" }
+# quickfix local wheel (macOS only, for FIX protocol support)
+# Install with: uv sync --extra fix
+# [tool.uv.sources]
+# quickfix = { path = "dependency/quickfix-1.15.1/dist/quickfix-1.15.1-cp313-cp313-macosx_10_13_universal2.whl" }
