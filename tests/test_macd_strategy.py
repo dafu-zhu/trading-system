@@ -7,10 +7,10 @@ Tests with mocked DataGateway for unit testing.
 import pytest
 import pandas as pd
 from datetime import datetime
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock
 
 from strategy.macd_strategy import MACDStrategy
-from models import DataGateway, Timeframe, Bar, MarketDataPoint, MarketSnapshot
+from models import DataGateway, Timeframe, Bar, MarketSnapshot
 
 
 class TestMACDStrategy:

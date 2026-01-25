@@ -6,7 +6,6 @@ Tests AlphaLoader, AlphaStrategy, and AlphaConfig.
 
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
 import polars as pl
 
 from data_loader.features.alpha_loader import AlphaLoader, AlphaLoaderConfig
@@ -191,7 +190,7 @@ class TestAlphaStrategy:
     def test_refresh_on_new_day(self, strategy, sample_snapshot):
         """Test that alphas refresh on new day."""
         # Generate signals for day 1
-        signals1 = strategy.generate_signals(sample_snapshot)
+        _signals1 = strategy.generate_signals(sample_snapshot)
         first_refresh = strategy._last_refresh
 
         # Generate signals for same day (should not refresh)

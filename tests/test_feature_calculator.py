@@ -6,7 +6,6 @@ Tests technical indicator calculations from Bar data.
 
 import pytest
 import pandas as pd
-import numpy as np
 from datetime import datetime
 
 from data_loader.features.calculator import FeatureCalculator, FeatureParams

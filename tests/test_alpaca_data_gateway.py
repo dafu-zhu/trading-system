@@ -10,7 +10,7 @@ import os
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from datetime import datetime, date, timezone
 
 from gateway.alpaca_data_gateway import AlpacaDataGateway
@@ -221,7 +221,7 @@ class TestAlpacaDataGatewayUnit:
 
     def test_timeframe_mapping(self, gateway):
         """Test internal timeframe to Alpaca timeframe mapping."""
-        from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+        from alpaca.data.timeframe import TimeFrameUnit
 
         result = gateway._to_alpaca_timeframe(Timeframe.MIN_1)
         assert result.amount == 1

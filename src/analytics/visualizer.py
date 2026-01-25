@@ -18,7 +18,7 @@ class BacktestVisualizer:
         """Initialize visualizer with default styling."""
         try:
             plt.style.use('seaborn-v0_8-darkgrid')
-        except:
+        except OSError:
             plt.style.use('default')
 
         self.figsize = (12, 6)

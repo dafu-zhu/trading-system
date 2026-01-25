@@ -37,7 +37,7 @@ from models import (
 
 logger = logging.getLogger(__name__)
 # Import at runtime for cast() to work
-from alpaca.trading.models import TradeAccount, Position
+from alpaca.trading.models import TradeAccount, Position  # noqa: E402
 
 
 class AlpacaTradingGateway(TradingGateway):
