@@ -1,0 +1,39 @@
+[Unit]
+Description=Trading System Health Server
+After=network.target trading-system.service
+Documentation=https://github.com/yourusername/trading-system
+
+[Service]
+Type=simple
+User=trading
+Group=trading
+WorkingDirectory=/opt/trading-system
+
+# Environment
+EnvironmentFile=/opt/trading-system/deploy/.env
+Environment=HEALTH_PORT=8080
+Environment=HEALTH_FILE=/opt/trading-system/data/health.json
+
+# Start the health server
+ExecStart=/opt/trading-system/.venv/bin/python \
+    /opt/trading-system/deploy/monitoring/health_server.py \
+    --port ${HEALTH_PORT} \
+    --health-file ${HEALTH_FILE}
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/opt/trading-system
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trading-health
+
+[Install]
+WantedBy=multi-user.target

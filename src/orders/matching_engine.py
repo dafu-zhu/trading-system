@@ -54,14 +54,14 @@ class DeterministicMatchingEngine(MatchingEngine):
         :param order_book: Order book (not used in bar-based matching)
         :return: Execution report dictionary
         """
-        if order.state != OrderState.ACKED:
+        if order.state not in (OrderState.ACKED, OrderState.PARTIALLY_FILLED):
             logger.warning(f"Cannot match order {order.order_id} in state {order.state}")
             return {
                 'order_id': order.order_id,
                 'status': 'rejected',
                 'filled_qty': 0.0,
                 'remaining_qty': order.remaining_qty,
-                'message': f'Order not in ACKED state: {order.state}'
+                'message': f'Order not in matchable state: {order.state}'
             }
 
         if self._current_bar is None:
@@ -114,7 +114,7 @@ class DeterministicMatchingEngine(MatchingEngine):
             status = 'partially_filled'
             message = f'Order partially filled: {filled_qty:.2f}/{order.qty}'
 
-        logger.info(f"Order {order.order_id} {status}: {filled_qty:.2f} @ ${fill_price:.2f}")
+        logger.info(f"Order {order.order_id} {status}: {filled_qty:.6f} @ ${fill_price:.2f}")
 
         return {
             'order_id': order.order_id,

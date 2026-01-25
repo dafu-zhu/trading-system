@@ -186,6 +186,50 @@ def confirm_live_trading() -> bool:
         return False
 
 
+def load_symbols_file(filepath: str) -> list[str]:
+    """
+    Load symbols from a text file.
+
+    Supports:
+      - One symbol per line
+      - Comments starting with #
+      - Inline comments after symbol
+      - Empty lines ignored
+
+    Args:
+        filepath: Path to symbols file
+
+    Returns:
+        List of symbol strings
+    """
+    symbols = []
+    path = Path(filepath)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Symbols file not found: {filepath}")
+
+    with open(path) as f:
+        for line in f:
+            # Strip whitespace
+            line = line.strip()
+
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+
+            # Handle inline comments (e.g., "AAPL # Apple Inc")
+            if "#" in line:
+                line = line.split("#")[0].strip()
+
+            if line:
+                symbols.append(line.upper())
+
+    if not symbols:
+        raise ValueError(f"No symbols found in {filepath}")
+
+    return symbols
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -193,7 +237,10 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Dry run with Alpaca (default)
+  # Load symbols from file
+  python run_live.py --symbols-file config/symbols.txt --paper
+
+  # Dry run with inline symbols
   python run_live.py --symbols AAPL MSFT --dry-run
 
   # Paper trading with Alpaca
@@ -201,9 +248,6 @@ Examples:
 
   # Crypto with Coinbase (free, no API key needed)
   python run_live.py --symbols BTC/USD ETH/USD --data-source coinbase --paper
-
-  # Stocks with Finnhub (free, needs FINNHUB_API_KEY)
-  python run_live.py --symbols AAPL MSFT --data-source finnhub --paper
 
   # Historical replay (dry run)
   python run_live.py --symbols AAPL --dry-run --replay-days 7
@@ -215,12 +259,17 @@ Data Sources:
         """,
     )
 
-    # Required
-    parser.add_argument(
+    # Symbols (either --symbols or --symbols-file, not both)
+    symbols_group = parser.add_mutually_exclusive_group(required=True)
+    symbols_group.add_argument(
         "--symbols",
         nargs="+",
-        required=True,
         help="Space-separated list of symbols to trade (e.g., AAPL MSFT)",
+    )
+    symbols_group.add_argument(
+        "--symbols-file",
+        type=str,
+        help="Path to file with symbols (one per line)",
     )
 
     # Config
@@ -368,12 +417,19 @@ def main() -> int:
         # Set data type
         config.data_type = DataType(args.data_type)
 
+        # Load symbols
+        if args.symbols_file:
+            symbols = load_symbols_file(args.symbols_file)
+            logger.info("Loaded %d symbols from %s", len(symbols), args.symbols_file)
+        else:
+            symbols = args.symbols
+
         # Validate credentials
         if not validate_credentials(config):
             return EXIT_ERROR
 
         # Print banner
-        print_banner(config, args.symbols, args.strategy, args.data_source)
+        print_banner(config, symbols, args.strategy, args.data_source)
 
         # Confirm live trading
         if not config.trading.paper_mode and not config.trading.dry_run and not args.yes:
@@ -444,14 +500,14 @@ def main() -> int:
             start = end - timedelta(days=replay_days)
             logger.info("Dry-run mode: replaying %d day(s) of historical data", replay_days)
             engine.run(
-                symbols=args.symbols,
+                symbols=symbols,
                 replay_start=start,
                 replay_end=end,
                 replay_timeframe=timeframe,
             )
         else:
             # Real-time streaming
-            engine.run(symbols=args.symbols)
+            engine.run(symbols=symbols)
 
         return EXIT_SUCCESS
 

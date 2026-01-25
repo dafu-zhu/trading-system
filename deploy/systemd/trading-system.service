@@ -2,6 +2,7 @@
 Description=Trading System Live Engine
 After=network.target
 Documentation=https://github.com/yourusername/trading-system
+OnFailure=trading-system-notify.service
 
 [Service]
 Type=simple
@@ -14,7 +15,7 @@ EnvironmentFile=/opt/trading-system/deploy/.env
 
 # Start the live trading engine
 ExecStart=/opt/trading-system/.venv/bin/python run_live.py \
-    --symbols ${TRADING_SYMBOLS} \
+    --symbols-file config/symbols.txt \
     --config config/live_trading.yaml \
     --log-level INFO
 

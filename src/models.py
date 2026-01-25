@@ -130,6 +130,18 @@ class MarketDataPoint:
     ask_price: Optional[float] = None
 
 
+@dataclass
+class MarketSnapshot:
+    """Point-in-time view of market state across multiple symbols.
+
+    Used by strategies to generate signals based on cross-sectional data.
+    """
+
+    timestamp: datetime.datetime
+    prices: dict[str, float]  # symbol -> current price
+    bars: Optional[dict[str, "Bar"]] = None  # symbol -> current bar (optional)
+
+
 class Instrument(ABC):
     """Abstract base class for financial instruments."""
 
@@ -199,7 +211,15 @@ class ColumnMapping:
 
 class Strategy(ABC):
     @abstractmethod
-    def generate_signals(self, tick: MarketDataPoint) -> list:
+    def generate_signals(self, snapshot: MarketSnapshot) -> list:
+        """Generate trading signals from market snapshot.
+
+        Args:
+            snapshot: Current market state with prices for all tracked symbols
+
+        Returns:
+            List of signal dictionaries with 'action', 'symbol', 'price', etc.
+        """
         pass
 
 

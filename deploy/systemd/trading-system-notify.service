@@ -1,0 +1,19 @@
+[Unit]
+Description=Trading System Failure Notification
+After=network.target
+
+[Service]
+Type=oneshot
+User=trading
+Group=trading
+WorkingDirectory=/opt/trading-system
+
+# Environment for email configuration
+EnvironmentFile=/opt/trading-system/deploy/.env
+
+# Run the notification script (new location)
+ExecStart=/opt/trading-system/deploy/scripts/notify-failure.sh
+
+# Security
+ProtectSystem=strict
+ReadWritePaths=/opt/trading-system/logs /opt/trading-system/data

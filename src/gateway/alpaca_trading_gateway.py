@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import logging
-from typing import Optional, TYPE_CHECKING, cast
+from typing import Optional, cast
 
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import (
@@ -36,9 +36,8 @@ from models import (
 )
 
 logger = logging.getLogger(__name__)
-if TYPE_CHECKING:
-    from alpaca.trading.models import TradeAccount
-    from alpaca.trading.models import Position
+# Import at runtime for cast() to work
+from alpaca.trading.models import TradeAccount, Position
 
 
 class AlpacaTradingGateway(TradingGateway):
