@@ -147,7 +147,9 @@ class LiveTradingEngine:
         self.running: bool = False
         self.metrics = EngineMetrics()
         self._shutdown_requested: bool = False
-        self._last_signals: dict[str, str] = {}  # Track last signal per symbol to avoid duplicates
+        self._last_signals: dict[
+            str, str
+        ] = {}  # Track last signal per symbol to avoid duplicates
 
         # Order gateway for logging
         if config.log_orders:
@@ -176,7 +178,9 @@ class LiveTradingEngine:
 
         logger.info(
             "LiveTradingEngine initialized: mode=%s, trading=%s, stop_loss=%s",
-            "DRY_RUN" if config.trading.dry_run else ("PAPER" if config.trading.paper_mode else "LIVE"),
+            "DRY_RUN"
+            if config.trading.dry_run
+            else ("PAPER" if config.trading.paper_mode else "LIVE"),
             "ENABLED" if config.enable_trading else "DISABLED",
             "ENABLED" if config.enable_stop_loss else "DISABLED",
         )
@@ -224,15 +228,16 @@ class LiveTradingEngine:
             else:
                 # Check if symbol is in config
                 config_sym = next(
-                    (s for s in self.config.symbols if s.symbol == sym),
-                    None
+                    (s for s in self.config.symbols if s.symbol == sym), None
                 )
                 if config_sym:
                     symbol_configs.append(config_sym)
                 else:
                     # Auto-detect: crypto symbols contain "/"
                     asset_type = AssetType.CRYPTO if "/" in sym else AssetType.STOCK
-                    symbol_configs.append(SymbolConfig(symbol=sym, asset_type=asset_type))
+                    symbol_configs.append(
+                        SymbolConfig(symbol=sym, asset_type=asset_type)
+                    )
         return symbol_configs
 
     def _on_market_data(self, tick: MarketDataPoint) -> None:
@@ -346,7 +351,9 @@ class LiveTradingEngine:
         try:
             portfolio_value = self._get_portfolio_value()
             pnl = portfolio_value - self.initial_capital
-            pnl_pct = (pnl / self.initial_capital * 100) if self.initial_capital > 0 else 0
+            pnl_pct = (
+                (pnl / self.initial_capital * 100) if self.initial_capital > 0 else 0
+            )
             uptime = (
                 (datetime.now() - self.metrics.start_time).total_seconds()
                 if self.metrics.start_time
@@ -371,7 +378,8 @@ class LiveTradingEngine:
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "uptime_seconds": int(uptime),
                 "mode": (
-                    "dry_run" if self.config.trading.dry_run
+                    "dry_run"
+                    if self.config.trading.dry_run
                     else ("paper" if self.config.trading.paper_mode else "live")
                 ),
                 "trading_enabled": self.config.enable_trading,
@@ -434,8 +442,12 @@ class LiveTradingEngine:
             quantity = self.positions[symbol].quantity
         else:
             # BUY: use position sizer
-            mock_portfolio = type("Portfolio", (), {"get_total_value": self._get_portfolio_value})()
-            quantity = self.position_sizer.calculate_qty(signal_dict, mock_portfolio, price)
+            mock_portfolio = type(
+                "Portfolio", (), {"get_total_value": self._get_portfolio_value}
+            )()
+            quantity = self.position_sizer.calculate_qty(
+                signal_dict, mock_portfolio, price
+            )
 
         if quantity and quantity <= 0:
             logger.debug("Position sizer returned 0 quantity for %s", symbol)
@@ -549,7 +561,9 @@ class LiveTradingEngine:
                     )
                 else:
                     # Poll for fill (simplified)
-                    self._wait_for_fill(result.order_id, symbol, side, quantity, price, timestamp)
+                    self._wait_for_fill(
+                        result.order_id, symbol, side, quantity, price, timestamp
+                    )
 
             except Exception as e:
                 logger.error("Order FAILED for %s: %s", symbol, e)
@@ -595,7 +609,9 @@ class LiveTradingEngine:
                 timestamp=timestamp,
             )
 
-    def _execute_exit_signal(self, exit_signal: ExitSignal, timestamp: datetime) -> None:
+    def _execute_exit_signal(
+        self, exit_signal: ExitSignal, timestamp: datetime
+    ) -> None:
         """Execute a stop-loss exit signal."""
         self._execute_order(
             symbol=exit_signal.symbol,
@@ -768,7 +784,9 @@ class LiveTradingEngine:
 
             positions = self.trading_gateway.get_positions()
             if positions:
-                logger.info("Syncing %d existing positions from broker...", len(positions))
+                logger.info(
+                    "Syncing %d existing positions from broker...", len(positions)
+                )
                 for pos_info in positions:
                     symbol = pos_info.symbol
                     self.positions[symbol] = LivePosition(
@@ -873,12 +891,18 @@ class LiveTradingEngine:
         logger.info("=" * 60)
         logger.info("LIVE TRADING ENGINE")
         logger.info("=" * 60)
-        mode = "DRY_RUN" if self.config.trading.dry_run else (
-            "PAPER" if self.config.trading.paper_mode else "LIVE"
+        mode = (
+            "DRY_RUN"
+            if self.config.trading.dry_run
+            else ("PAPER" if self.config.trading.paper_mode else "LIVE")
         )
         logger.info("Mode: %s", mode)
-        logger.info("Trading: %s", "ENABLED" if self.config.enable_trading else "DISABLED")
-        logger.info("Stop-Loss: %s", "ENABLED" if self.config.enable_stop_loss else "DISABLED")
+        logger.info(
+            "Trading: %s", "ENABLED" if self.config.enable_trading else "DISABLED"
+        )
+        logger.info(
+            "Stop-Loss: %s", "ENABLED" if self.config.enable_stop_loss else "DISABLED"
+        )
         logger.info("Strategy: %s", self.strategy.__class__.__name__)
         logger.info("Symbols: %s", ", ".join(symbols))
         logger.info("Data Type: %s", data_type.value)
@@ -895,8 +919,14 @@ class LiveTradingEngine:
 
             if self.config.trading.dry_run and replay_start and replay_end:
                 # Historical replay mode
-                logger.info("Starting historical replay from %s to %s...", replay_start, replay_end)
-                self._run_historical_replay(symbol_configs, replay_timeframe, replay_start, replay_end)
+                logger.info(
+                    "Starting historical replay from %s to %s...",
+                    replay_start,
+                    replay_end,
+                )
+                self._run_historical_replay(
+                    symbol_configs, replay_timeframe, replay_start, replay_end
+                )
             else:
                 # Real-time streaming
                 logger.info("Starting market data stream...")
@@ -931,7 +961,7 @@ class LiveTradingEngine:
             self._close_all_positions()
 
         # Stop streaming
-        if hasattr(self.data_gateway, 'stop_streaming'):
+        if hasattr(self.data_gateway, "stop_streaming"):
             self.data_gateway.stop_streaming()
 
         # Disconnect gateways

@@ -15,13 +15,7 @@ class Position(PortfolioComponent):
 
     def get_positions(self) -> list[dict]:
         """Return this position as a single-item list"""
-        return [
-            {
-                "symbol": self.symbol,
-                "quantity": self.quantity,
-                "price": self.price
-            }
-        ]
+        return [{"symbol": self.symbol, "quantity": self.quantity, "price": self.price}]
 
     def __repr__(self) -> str:
         return f"Position({self.symbol}, qty={self.quantity}, price={self.price})"
@@ -61,7 +55,8 @@ class Portfolio:
     """
     Efficient interface for tree-based portfolio structure
     """
-    def __init__(self, init_capital: float=1_000_000):
+
+    def __init__(self, init_capital: float = 1_000_000):
         self.root = PortfolioGroup("root")
         self._position_index: dict[str, Position] = {}
         # add cash as a separate position
@@ -71,13 +66,13 @@ class Portfolio:
     def add_position(self, position: Position, group: PortfolioGroup):
         if position.symbol in self._position_index:
             raise ValueError(f"Symbol {position.symbol} already exists in portfolio")
-        group.add(position)     # add to tree, O(1)
-        self._position_index[position.symbol] = position    # add to index
+        group.add(position)  # add to tree, O(1)
+        self._position_index[position.symbol] = position  # add to index
 
     def update_quantity(self, symbol: str, delta: float):
         """Update quantity of a given symbol"""
         if position := self._position_index.get(symbol):
-            position.quantity += delta      # in-place update
+            position.quantity += delta  # in-place update
         else:
             raise ValueError(f"Symbol {symbol} not found")
 
@@ -102,4 +97,3 @@ class Portfolio:
     def get_positions(self) -> list[dict]:
         """Get all positions in portfolio"""
         return self.root.get_positions()
-

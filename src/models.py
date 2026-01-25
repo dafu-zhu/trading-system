@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 class OrderSide(Enum):
     """Order side enumeration."""
+
     BUY = "buy"
     SELL = "sell"
 
@@ -26,6 +27,7 @@ class OrderSide(Enum):
 
 class OrderType(Enum):
     """Order type enumeration."""
+
     MARKET = "market"
     LIMIT = "limit"
     STOP = "stop"
@@ -34,6 +36,7 @@ class OrderType(Enum):
 
 class TimeInForce(Enum):
     """Time in force enumeration."""
+
     DAY = "day"
     GTC = "gtc"  # Good til canceled
     IOC = "ioc"  # Immediate or cancel
@@ -42,6 +45,7 @@ class TimeInForce(Enum):
 
 class Timeframe(Enum):
     """Bar timeframe enumeration."""
+
     MIN_1 = "1Min"
     MIN_5 = "5Min"
     MIN_15 = "15Min"
@@ -56,6 +60,7 @@ class Timeframe(Enum):
 @dataclass
 class Bar:
     """OHLCV bar data."""
+
     symbol: str
     timestamp: datetime.datetime
     timeframe: Timeframe
@@ -71,6 +76,7 @@ class Bar:
 @dataclass
 class MarketCalendarDay:
     """Market calendar entry for a trading day."""
+
     date: datetime.date
     open_time: datetime.datetime
     close_time: datetime.datetime
@@ -81,6 +87,7 @@ class MarketCalendarDay:
 @dataclass
 class AccountInfo:
     """Trading account information."""
+
     account_id: str
     cash: float
     portfolio_value: float
@@ -93,6 +100,7 @@ class AccountInfo:
 @dataclass
 class PositionInfo:
     """Position information from broker."""
+
     symbol: str
     quantity: float
     avg_entry_price: float
@@ -104,6 +112,7 @@ class PositionInfo:
 @dataclass
 class OrderResult:
     """Result of an order submission."""
+
     order_id: str
     client_order_id: Optional[str]
     symbol: str
@@ -158,11 +167,7 @@ class Instrument(ABC):
         """
         Return base metrics for this instrument. Can be extended by decorators.
         """
-        return {
-            "symbol": self.symbol,
-            "price": self.price,
-            "type": self.get_type()
-        }
+        return {"symbol": self.symbol, "price": self.price, "type": self.get_type()}
 
     def __repr__(self) -> str:
         return f"{self.get_type()}({self.symbol}, price={self.price})"
@@ -189,6 +194,7 @@ class PortfolioComponent(ABC):
 @dataclass
 class FeatureConfig:
     """Configuration for a feature group with optional parameters."""
+
     name: str
     windows: Optional[list[int]] = None
     params: dict = field(default_factory=dict)
@@ -197,14 +203,15 @@ class FeatureConfig:
 @dataclass
 class ColumnMapping:
     """Mapping of standard column names to dataset-specific column names."""
-    open: str = 'Open'
-    high: str = 'High'
-    low: str = 'Low'
-    close: str = 'Adj Close'
-    volume: str = 'Volume'
+
+    open: str = "Open"
+    high: str = "High"
+    low: str = "Low"
+    close: str = "Adj Close"
+    volume: str = "Volume"
 
     @classmethod
-    def from_dict(cls, mapping: dict) -> 'ColumnMapping':
+    def from_dict(cls, mapping: dict) -> "ColumnMapping":
         """Create ColumnMapping from a dictionary."""
         return cls(**mapping)
 
@@ -395,7 +402,6 @@ class DataGateway(ABC):
 
 
 class MatchingEngine(ABC):
-
     @abstractmethod
     def match(self, order: Order) -> dict:
         """
@@ -408,9 +414,10 @@ class MatchingEngine(ABC):
 
 
 class PositionSizer(ABC):
-
     @abstractmethod
-    def calculate_qty(self, signal: dict, portfolio: "Portfolio", price: float) -> float:
+    def calculate_qty(
+        self, signal: dict, portfolio: "Portfolio", price: float
+    ) -> float:
         """
         Calculate position size.
 

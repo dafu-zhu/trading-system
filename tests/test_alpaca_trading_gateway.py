@@ -36,11 +36,14 @@ class TestAlpacaTradingGatewayUnit:
     @pytest.fixture
     def gateway(self, mock_trading_client):
         """Create gateway with mocked credentials."""
-        with patch.dict(os.environ, {
-            "ALPACA_API_KEY": "test_key",
-            "ALPACA_API_SECRET": "test_secret",
-            "ALPACA_BASE_URL": "https://paper-api.alpaca.markets",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ALPACA_API_KEY": "test_key",
+                "ALPACA_API_SECRET": "test_secret",
+                "ALPACA_BASE_URL": "https://paper-api.alpaca.markets",
+            },
+        ):
             gw = AlpacaTradingGateway()
             return gw
 
@@ -52,10 +55,13 @@ class TestAlpacaTradingGatewayUnit:
 
     def test_init_accepts_env_credentials(self):
         """Test that gateway accepts credentials from environment."""
-        with patch.dict(os.environ, {
-            "ALPACA_API_KEY": "test_key",
-            "ALPACA_API_SECRET": "test_secret",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ALPACA_API_KEY": "test_key",
+                "ALPACA_API_SECRET": "test_secret",
+            },
+        ):
             with patch("gateway.alpaca_trading_gateway.TradingClient"):
                 gw = AlpacaTradingGateway()
                 assert gw._api_key == "test_key"
@@ -74,11 +80,14 @@ class TestAlpacaTradingGatewayUnit:
     def test_init_warns_on_live_url(self, caplog):
         """Test that gateway warns when using live URL."""
         with patch("gateway.alpaca_trading_gateway.TradingClient"):
-            with patch.dict(os.environ, {
-                "ALPACA_API_KEY": "test_key",
-                "ALPACA_API_SECRET": "test_secret",
-                "ALPACA_BASE_URL": "https://api.alpaca.markets",
-            }):
+            with patch.dict(
+                os.environ,
+                {
+                    "ALPACA_API_KEY": "test_key",
+                    "ALPACA_API_SECRET": "test_secret",
+                    "ALPACA_BASE_URL": "https://api.alpaca.markets",
+                },
+            ):
                 AlpacaTradingGateway()
                 assert "LIVE" in caplog.text or not caplog.text  # Warning logged
 
@@ -96,6 +105,7 @@ class TestAlpacaTradingGatewayUnit:
     def test_connect_failure(self, gateway, mock_trading_client):
         """Test connection failure."""
         from alpaca.common.exceptions import APIError
+
         mock_trading_client.get_account.side_effect = APIError("Auth failed")
 
         result = gateway.connect()
@@ -193,7 +203,12 @@ class TestAlpacaTradingGatewayUnit:
         mock_trading_client.submit_order.return_value = mock_order
 
         # Mock the enum comparisons
-        from alpaca.trading.enums import OrderSide as AlpacaOrderSide, OrderStatus as AlpacaOrderStatus, OrderType as AlpacaOT
+        from alpaca.trading.enums import (
+            OrderSide as AlpacaOrderSide,
+            OrderStatus as AlpacaOrderStatus,
+            OrderType as AlpacaOT,
+        )
+
         mock_order.side = AlpacaOrderSide.BUY
         mock_order.status = AlpacaOrderStatus.NEW
         mock_order.order_type = AlpacaOT.MARKET
@@ -242,6 +257,7 @@ class TestAlpacaTradingGatewayUnit:
     def test_cancel_order_failure(self, gateway, mock_trading_client):
         """Test failed order cancellation."""
         from alpaca.common.exceptions import APIError
+
         mock_account = Mock()
         mock_account.account_number = "PA123"
         mock_trading_client.get_account.return_value = mock_account

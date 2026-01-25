@@ -8,7 +8,15 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from models import DataGateway, Timeframe, Bar, MarketSnapshot, Strategy, OrderSide, TimeInForce
+from models import (
+    DataGateway,
+    Timeframe,
+    Bar,
+    MarketSnapshot,
+    Strategy,
+    OrderSide,
+    TimeInForce,
+)
 from orders.order import Order, OrderState
 from orders.order_manager import OrderManager
 from orders.matching_engine import DeterministicMatchingEngine
@@ -107,7 +115,9 @@ class BacktestEngine:
 
             # Record initial equity on first bar
             if first_bar:
-                self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
+                self._equity_tracker.record_tick(
+                    bar.timestamp, self._portfolio.get_total_value()
+                )
                 first_bar = False
 
             # Step 1: Try to fill pending orders first (GTC only)
@@ -122,11 +132,11 @@ class BacktestEngine:
             )
             signals = self._strategy.generate_signals(snapshot)
             signal = signals[0] if signals else None
-            action = signal.get('action', 'HOLD') if signal else 'HOLD'
+            action = signal.get("action", "HOLD") if signal else "HOLD"
 
             # Step 3: Process new signals
-            if signal is not None and action in ('BUY', 'SELL'):
-                side = OrderSide.BUY if action == 'BUY' else OrderSide.SELL
+            if signal is not None and action in ("BUY", "SELL"):
+                side = OrderSide.BUY if action == "BUY" else OrderSide.SELL
 
                 # For GTC: check if there's a pending order
                 if self._time_in_force == TimeInForce.GTC:
@@ -135,21 +145,29 @@ class BacktestEngine:
                         # If same direction, skip (let pending order fill)
                         # If opposite direction, cancel pending and create new
                         if pending.side != side:
-                            logger.debug(f"Canceling pending {pending.side.name} order, new signal: {side.name}")
+                            logger.debug(
+                                f"Canceling pending {pending.side.name} order, new signal: {side.name}"
+                            )
                             del self._pending_orders[symbol]
-                            qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                            qty = self._position_sizer.calculate_qty(
+                                signal, self._portfolio, bar.close
+                            )
                             if qty > 0:
                                 self._process_order(bar, symbol, side, qty)
                         # Same direction: skip, let pending fill
                         continue
 
-                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                qty = self._position_sizer.calculate_qty(
+                    signal, self._portfolio, bar.close
+                )
                 if qty > 0:
                     self._process_order(bar, symbol, side, qty)
 
             # Update portfolio and record equity
             self._mark_to_market()
-            self._equity_tracker.record_tick(bar.timestamp, self._portfolio.get_total_value())
+            self._equity_tracker.record_tick(
+                bar.timestamp, self._portfolio.get_total_value()
+            )
 
         # Close all open positions at end of backtest
         if last_timestamp:
@@ -181,7 +199,9 @@ class BacktestEngine:
         if not self._gateway.is_connected():
             raise RuntimeError("Gateway not connected. Call gateway.connect() first.")
 
-        logger.info(f"Starting multi-symbol backtest: {symbols} from {start.date()} to {end.date()}")
+        logger.info(
+            f"Starting multi-symbol backtest: {symbols} from {start.date()} to {end.date()}"
+        )
 
         # Fetch all bars for all symbols
         all_bars: dict[str, list[Bar]] = {}
@@ -191,9 +211,9 @@ class BacktestEngine:
             logger.info(f"  Loaded {len(bars_list)} bars for {symbol}")
 
         # Collect all unique timestamps and sort
-        timestamps = sorted(set(
-            bar.timestamp for bars in all_bars.values() for bar in bars
-        ))
+        timestamps = sorted(
+            set(bar.timestamp for bars in all_bars.values() for bar in bars)
+        )
 
         if not timestamps:
             logger.warning("No bars found for any symbol")
@@ -249,11 +269,11 @@ class BacktestEngine:
             for signal in signals:
                 if signal is None:
                     continue
-                action = signal.get('action', 'HOLD')
-                symbol = signal.get('symbol')
+                action = signal.get("action", "HOLD")
+                symbol = signal.get("symbol")
 
-                if action in ('BUY', 'SELL') and symbol and symbol in bars:
-                    side = OrderSide.BUY if action == 'BUY' else OrderSide.SELL
+                if action in ("BUY", "SELL") and symbol and symbol in bars:
+                    side = OrderSide.BUY if action == "BUY" else OrderSide.SELL
                     bar = bars[symbol]
 
                     # For GTC: check if there's a pending order
@@ -261,16 +281,22 @@ class BacktestEngine:
                         pending = self._pending_orders.get(symbol)
                         if pending is not None:
                             if pending.side != side:
-                                logger.debug(f"Canceling pending {pending.side.name} order, new signal: {side.name}")
+                                logger.debug(
+                                    f"Canceling pending {pending.side.name} order, new signal: {side.name}"
+                                )
                                 del self._pending_orders[symbol]
-                                qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                                qty = self._position_sizer.calculate_qty(
+                                    signal, self._portfolio, bar.close
+                                )
                                 if qty > 0:
                                     self._matching.set_current_bar(bar)
                                     self._process_order(bar, symbol, side, qty)
                             # Same direction: skip, let pending fill
                             continue
 
-                    qty = self._position_sizer.calculate_qty(signal, self._portfolio, bar.close)
+                    qty = self._position_sizer.calculate_qty(
+                        signal, self._portfolio, bar.close
+                    )
                     if qty > 0:
                         self._matching.set_current_bar(bar)
                         self._process_order(bar, symbol, side, qty)
@@ -296,10 +322,14 @@ class BacktestEngine:
     ) -> dict:
         """Generate backtest results summary for multi-symbol run."""
         equity_series = self._equity_tracker.get_equity_series()
-        equity_curve = [
-            {'timestamp': ts, 'value': val}
-            for ts, val in zip(equity_series.index, equity_series.values)
-        ] if not equity_series.empty else []
+        equity_curve = (
+            [
+                {"timestamp": ts, "value": val}
+                for ts, val in zip(equity_series.index, equity_series.values)
+            ]
+            if not equity_series.empty
+            else []
+        )
 
         final_value = self._portfolio.get_total_value()
         total_return = (final_value - self._init_capital) / self._init_capital * 100
@@ -307,17 +337,17 @@ class BacktestEngine:
         trades = self._trade_tracker.completed_trades
 
         return {
-            'symbols': symbols,
-            'start': start,
-            'end': end,
-            'bar_count': bar_count,
-            'initial_capital': self._init_capital,
-            'final_value': final_value,
-            'total_return_pct': total_return,
-            'total_trades': len(trades),
-            'equity_curve': equity_curve,
-            'trades': trades,
-            'reports': self._reports,
+            "symbols": symbols,
+            "start": start,
+            "end": end,
+            "bar_count": bar_count,
+            "initial_capital": self._init_capital,
+            "final_value": final_value,
+            "total_return_pct": total_return,
+            "total_trades": len(trades),
+            "equity_curve": equity_curve,
+            "trades": trades,
+            "reports": self._reports,
         }
 
     def _fill_pending_orders(self, bar: Bar) -> None:
@@ -335,15 +365,22 @@ class BacktestEngine:
         report = self._matching.match(order)
         self._reports.append(report)
 
-        status = report.get('status')
-        filled_qty = report.get('filled_qty', 0.0)
-        fill_price = report.get('fill_price', bar.close)
+        status = report.get("status")
+        filled_qty = report.get("filled_qty", 0.0)
+        fill_price = report.get("fill_price", bar.close)
 
         if filled_qty > 0:
-            self._process_fill(symbol, order.side, filled_qty, fill_price, bar.timestamp, order.order_id)
+            self._process_fill(
+                symbol,
+                order.side,
+                filled_qty,
+                fill_price,
+                bar.timestamp,
+                order.order_id,
+            )
 
         # Remove from pending if fully filled
-        if status == 'filled' or order.remaining_qty <= 0:
+        if status == "filled" or order.remaining_qty <= 0:
             del self._pending_orders[symbol]
             logger.debug(f"Pending order {order.order_id} fully filled")
 
@@ -376,29 +413,41 @@ class BacktestEngine:
         self._reports.append(report)
 
         # Process fill based on time_in_force policy
-        status = report.get('status')
-        filled_qty = report.get('filled_qty', 0.0)
-        fill_price = report.get('fill_price', bar.close)
+        status = report.get("status")
+        filled_qty = report.get("filled_qty", 0.0)
+        fill_price = report.get("fill_price", bar.close)
 
         if self._time_in_force == TimeInForce.FOK:
             # Fill-or-Kill: only accept complete fills
-            if status == 'filled' and filled_qty > 0:
-                self._process_fill(symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id)
-            elif status == 'partially_filled':
-                logger.debug(f"Order {order.order_id} canceled (FOK): insufficient volume")
+            if status == "filled" and filled_qty > 0:
+                self._process_fill(
+                    symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id
+                )
+            elif status == "partially_filled":
+                logger.debug(
+                    f"Order {order.order_id} canceled (FOK): insufficient volume"
+                )
         elif self._time_in_force == TimeInForce.IOC:
             # Immediate-or-Cancel: fill what we can, cancel rest
-            if status in ['filled', 'partially_filled'] and filled_qty > 0:
-                self._process_fill(symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id)
-            if status == 'partially_filled':
-                logger.debug(f"Order {order.order_id} partial fill (IOC): {order.remaining_qty:.6f} canceled")
+            if status in ["filled", "partially_filled"] and filled_qty > 0:
+                self._process_fill(
+                    symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id
+                )
+            if status == "partially_filled":
+                logger.debug(
+                    f"Order {order.order_id} partial fill (IOC): {order.remaining_qty:.6f} canceled"
+                )
         else:  # GTC
             # Good-Till-Canceled: fill what we can, carry forward rest
-            if status in ['filled', 'partially_filled'] and filled_qty > 0:
-                self._process_fill(symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id)
-            if status == 'partially_filled' and order.remaining_qty > 0:
+            if status in ["filled", "partially_filled"] and filled_qty > 0:
+                self._process_fill(
+                    symbol, side, filled_qty, fill_price, bar.timestamp, order.order_id
+                )
+            if status == "partially_filled" and order.remaining_qty > 0:
                 self._pending_orders[symbol] = order
-                logger.debug(f"Order {order.order_id} pending (GTC): {order.remaining_qty:.6f} remaining")
+                logger.debug(
+                    f"Order {order.order_id} pending (GTC): {order.remaining_qty:.6f} remaining"
+                )
 
     def _process_fill(
         self,
@@ -433,12 +482,14 @@ class BacktestEngine:
         except ValueError:
             # Position exists, update it
             existing = self._portfolio.get_position(symbol)[0]
-            existing_qty = existing['quantity']
-            existing_price = existing['price']
+            existing_qty = existing["quantity"]
+            existing_price = existing["price"]
 
             total_qty = existing_qty + (filled_qty * side_mul)
             if total_qty != 0:
-                new_avg_price = (existing_qty * existing_price + filled_qty * fill_price * side_mul) / total_qty
+                new_avg_price = (
+                    existing_qty * existing_price + filled_qty * fill_price * side_mul
+                ) / total_qty
             else:
                 new_avg_price = fill_price
 
@@ -448,8 +499,8 @@ class BacktestEngine:
     def _mark_to_market(self) -> None:
         """Update positions to current market prices."""
         for pos in self._portfolio.get_positions():
-            symbol = pos['symbol']
-            if symbol == 'cash':
+            symbol = pos["symbol"]
+            if symbol == "cash":
                 continue
             if symbol in self._current_prices:
                 self._portfolio.update_price(symbol, self._current_prices[symbol])
@@ -459,9 +510,9 @@ class BacktestEngine:
         positions_to_close = []
 
         for pos in self._portfolio.get_positions():
-            symbol = pos['symbol']
-            qty = pos['quantity']
-            if symbol == 'cash' or qty <= 0:
+            symbol = pos["symbol"]
+            qty = pos["quantity"]
+            if symbol == "cash" or qty <= 0:
                 continue
             positions_to_close.append((symbol, qty))
 
@@ -501,10 +552,14 @@ class BacktestEngine:
     ) -> dict:
         """Generate backtest results summary."""
         equity_series = self._equity_tracker.get_equity_series()
-        equity_curve = [
-            {'timestamp': ts, 'value': val}
-            for ts, val in zip(equity_series.index, equity_series.values)
-        ] if not equity_series.empty else []
+        equity_curve = (
+            [
+                {"timestamp": ts, "value": val}
+                for ts, val in zip(equity_series.index, equity_series.values)
+            ]
+            if not equity_series.empty
+            else []
+        )
 
         final_value = self._portfolio.get_total_value()
         total_return = (final_value - self._init_capital) / self._init_capital * 100
@@ -512,17 +567,17 @@ class BacktestEngine:
         trades = self._trade_tracker.completed_trades
 
         return {
-            'symbol': symbol,
-            'start': start,
-            'end': end,
-            'bar_count': bar_count,
-            'initial_capital': self._init_capital,
-            'final_value': final_value,
-            'total_return_pct': total_return,
-            'total_trades': len(trades),
-            'equity_curve': equity_curve,
-            'trades': trades,
-            'reports': self._reports,
+            "symbol": symbol,
+            "start": start,
+            "end": end,
+            "bar_count": bar_count,
+            "initial_capital": self._init_capital,
+            "final_value": final_value,
+            "total_return_pct": total_return,
+            "total_trades": len(trades),
+            "equity_curve": equity_curve,
+            "trades": trades,
+            "reports": self._reports,
         }
 
     @property

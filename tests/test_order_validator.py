@@ -88,7 +88,10 @@ class TestOrderValidator:
             current_prices={"AAPL": 150.0},
         )
         assert result.is_valid is False
-        assert "capital" in result.error_code.lower() or "capital" in result.check_failed.lower()
+        assert (
+            "capital" in result.error_code.lower()
+            or "capital" in result.check_failed.lower()
+        )
 
     def test_cash_buffer_respected(self, validator):
         """Test that cash buffer is maintained."""
@@ -118,7 +121,9 @@ class TestOrderValidator:
             current_prices={"AAPL": 30.0},
         )
         assert result.is_valid is False
-        assert "size" in result.check_failed.lower() or "size" in result.error_code.lower()
+        assert (
+            "size" in result.check_failed.lower() or "size" in result.error_code.lower()
+        )
 
     def test_position_value_limit(self, validator):
         """Test rejection for exceeding position value limit."""
@@ -132,7 +137,10 @@ class TestOrderValidator:
             current_prices={"AAPL": 150.0},
         )
         assert result.is_valid is False
-        assert "value" in result.check_failed.lower() or "value" in result.error_code.lower()
+        assert (
+            "value" in result.check_failed.lower()
+            or "value" in result.error_code.lower()
+        )
 
     def test_total_exposure_limit(self, validator):
         """Test rejection for exceeding total exposure limit."""
@@ -157,7 +165,10 @@ class TestOrderValidator:
             current_prices=current_prices,
         )
         assert result.is_valid is False
-        assert "exposure" in result.check_failed.lower() or "exposure" in result.error_code.lower()
+        assert (
+            "exposure" in result.check_failed.lower()
+            or "exposure" in result.error_code.lower()
+        )
 
     def test_rate_limiting(self, validator):
         """Test global rate limiting enforced."""
@@ -189,7 +200,9 @@ class TestOrderValidator:
             current_prices={"NVDA": 150.0},
         )
         assert result.is_valid is False
-        assert "rate" in result.check_failed.lower() or "rate" in result.error_code.lower()
+        assert (
+            "rate" in result.check_failed.lower() or "rate" in result.error_code.lower()
+        )
 
     def test_rate_limiting_per_symbol(self, validator):
         """Test per-symbol rate limiting."""

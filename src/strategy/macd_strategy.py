@@ -81,7 +81,7 @@ class MACDStrategy(Strategy):
             return pd.DataFrame()
 
         # Calculate MACD features
-        df = FeatureCalculator.calculate(bars, ['macd'], self._feature_params)
+        df = FeatureCalculator.calculate(bars, ["macd"], self._feature_params)
 
         # Generate trading signals
         df = self.generate_signals_from_macd(df)
@@ -121,18 +121,18 @@ class MACDStrategy(Strategy):
 
         df = self._data_cache.get(tick.symbol)
         if df is None or df.empty:
-            return self._make_signal('HOLD', tick)
+            return self._make_signal("HOLD", tick)
 
         # Find exact timestamp match or closest prior
         if tick.timestamp in df.index:
-            signal = str(df.loc[tick.timestamp, 'signal'])
+            signal = str(df.loc[tick.timestamp, "signal"])
             return self._make_signal(signal, tick)
 
         prior = df[df.index <= tick.timestamp]
         if prior.empty:
-            return self._make_signal('HOLD', tick)
+            return self._make_signal("HOLD", tick)
 
-        signal = str(prior.iloc[-1]['signal'])
+        signal = str(prior.iloc[-1]["signal"])
         return self._make_signal(signal, tick)
 
     def generate_signals_batch(
@@ -155,10 +155,10 @@ class MACDStrategy(Strategy):
     def _make_signal(action: str, tick: MarketDataPoint) -> dict:
         """Create signal dict from action and tick."""
         return {
-            'action': action,
-            'timestamp': tick.timestamp,
-            'symbol': tick.symbol,
-            'price': tick.price,
+            "action": action,
+            "timestamp": tick.timestamp,
+            "symbol": tick.symbol,
+            "price": tick.price,
         }
 
     @staticmethod
@@ -172,27 +172,25 @@ class MACDStrategy(Strategy):
         :param df: DataFrame with MACD columns
         :return: DataFrame with added 'signal' column
         """
-        required = ['macd', 'macd_signal']
+        required = ["macd", "macd_signal"]
         missing = [col for col in required if col not in df.columns]
         if missing:
             raise ValueError(f"Missing columns: {missing}. Calculate MACD first.")
 
         df_result = df.copy()
-        df_result['signal'] = 'HOLD'
+        df_result["signal"] = "HOLD"
 
         # Bullish crossover: MACD crosses above signal
-        bullish = (
-            (df_result['macd'].shift(1) <= df_result['macd_signal'].shift(1)) &
-            (df_result['macd'] > df_result['macd_signal'])
+        bullish = (df_result["macd"].shift(1) <= df_result["macd_signal"].shift(1)) & (
+            df_result["macd"] > df_result["macd_signal"]
         )
-        df_result.loc[bullish, 'signal'] = 'BUY'
+        df_result.loc[bullish, "signal"] = "BUY"
 
         # Bearish crossover: MACD crosses below signal
-        bearish = (
-            (df_result['macd'].shift(1) >= df_result['macd_signal'].shift(1)) &
-            (df_result['macd'] < df_result['macd_signal'])
+        bearish = (df_result["macd"].shift(1) >= df_result["macd_signal"].shift(1)) & (
+            df_result["macd"] < df_result["macd_signal"]
         )
-        df_result.loc[bearish, 'signal'] = 'SELL'
+        df_result.loc[bearish, "signal"] = "SELL"
 
         return df_result
 

@@ -4,6 +4,7 @@ Equity Tracker: Tracks portfolio value at each tick for accurate PnL tracking.
 This tracker records the portfolio value at every market data tick,
 enabling accurate mark-to-market valuation and PnL curve generation.
 """
+
 from typing import List, Tuple
 from datetime import datetime
 import pandas as pd

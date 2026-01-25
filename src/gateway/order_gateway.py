@@ -233,7 +233,14 @@ class OrderGateway:
             message=message,
         )
         self._write_event(event)
-        logger.debug("Logged %s: %s %s %s @ %.2f", event_type.value, side, quantity, symbol, price)
+        logger.debug(
+            "Logged %s: %s %s %s @ %.2f",
+            event_type.value,
+            side,
+            quantity,
+            symbol,
+            price,
+        )
 
     def log_order_filled(
         self,
@@ -382,7 +389,9 @@ class OrderGateway:
         original = self._get_last_event_for_order(order_id)
         side = original.side if original else "unknown"
         order_type = original.order_type if original else "unknown"
-        quantity = new_quantity if new_quantity else (original.quantity if original else 0)
+        quantity = (
+            new_quantity if new_quantity else (original.quantity if original else 0)
+        )
         price = new_price if new_price else (original.price if original else 0)
 
         event = OrderEvent(
@@ -398,7 +407,9 @@ class OrderGateway:
             message=message,
         )
         self._write_event(event)
-        logger.debug("Logged MODIFIED: %s - qty=%.2f, price=%.2f", order_id, quantity, price)
+        logger.debug(
+            "Logged MODIFIED: %s - qty=%.2f, price=%.2f", order_id, quantity, price
+        )
 
     def _get_last_event_for_order(self, order_id: str) -> Optional[OrderEvent]:
         """Get the most recent event for an order."""
@@ -450,7 +461,10 @@ class OrderGateway:
 
         for event in self._events:
             # Count unique orders
-            if event.event_type == OrderEventType.SENT and event.order_id not in seen_orders:
+            if (
+                event.event_type == OrderEventType.SENT
+                and event.order_id not in seen_orders
+            ):
                 stats["total_orders"] += 1
                 seen_orders.add(event.order_id)
 
@@ -485,7 +499,9 @@ class OrderGateway:
 
         # Calculate weighted average fill price
         if stats["total_filled_qty"] > 0:
-            stats["avg_fill_price"] = stats["total_notional"] / stats["total_filled_qty"]
+            stats["avg_fill_price"] = (
+                stats["total_notional"] / stats["total_filled_qty"]
+            )
         else:
             stats["avg_fill_price"] = 0.0
 

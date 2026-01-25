@@ -141,9 +141,7 @@ class ExecutionMonitor:
             else:
                 self._planned_trades[symbol]["status"] = "partial"
 
-        logger.debug(
-            f"Tracked fill: {side} {quantity} {symbol} @ {fill_price}"
-        )
+        logger.debug(f"Tracked fill: {side} {quantity} {symbol} @ {fill_price}")
 
     def get_execution_vwap(self, symbol: str) -> Optional[float]:
         """
@@ -260,12 +258,10 @@ class ExecutionMonitor:
         """
         total = len(self._planned_trades)
         completed = sum(
-            1 for t in self._planned_trades.values()
-            if t["status"] == "completed"
+            1 for t in self._planned_trades.values() if t["status"] == "completed"
         )
         failed = sum(
-            1 for t in self._planned_trades.values()
-            if t["status"] == "failed"
+            1 for t in self._planned_trades.values() if t["status"] == "failed"
         )
         pending = total - completed - failed
 

@@ -317,7 +317,7 @@ class BarStorage:
         """Convert a database row to a Bar object."""
         return Bar(
             symbol=row["symbol"],
-            timestamp=self._parse_timestamp(row["timestamp"]), # type: ignore
+            timestamp=self._parse_timestamp(row["timestamp"]),  # type: ignore
             timeframe=Timeframe(row["timeframe"]),
             open=row["open"],
             high=row["high"],

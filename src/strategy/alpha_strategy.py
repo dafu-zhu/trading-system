@@ -144,9 +144,7 @@ class AlphaStrategy(Strategy):
         self._combined_alpha = combined
 
         # Compute rankings
-        self._rankings = sorted(
-            combined.items(), key=lambda x: x[1], reverse=True
-        )
+        self._rankings = sorted(combined.items(), key=lambda x: x[1], reverse=True)
 
         self._compute_signals()
         self._last_refresh = timestamp

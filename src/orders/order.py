@@ -11,7 +11,7 @@ setup_logging()
 
 class OrderState(Enum):
     NEW = auto()
-    ACKED = auto()      # Acknowledged
+    ACKED = auto()  # Acknowledged
     PARTIALLY_FILLED = auto()
     FILLED = auto()
     CANCELED = auto()
@@ -22,6 +22,7 @@ class Order:
     """
     Represents a trading order with support for partial fills.
     """
+
     _next_order_id = 1
 
     def __init__(
@@ -31,7 +32,7 @@ class Order:
         price: float,
         side: OrderSide,
         order_id: Optional[int] = None,
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ):
         self.order_id = order_id if order_id is not None else Order._next_order_id
         if order_id is None:
@@ -50,7 +51,11 @@ class Order:
         """Transition order to a new state with validation."""
         allowed = {
             OrderState.NEW: {OrderState.ACKED, OrderState.REJECTED},
-            OrderState.ACKED: {OrderState.FILLED, OrderState.PARTIALLY_FILLED, OrderState.CANCELED},
+            OrderState.ACKED: {
+                OrderState.FILLED,
+                OrderState.PARTIALLY_FILLED,
+                OrderState.CANCELED,
+            },
             OrderState.PARTIALLY_FILLED: {OrderState.FILLED, OrderState.CANCELED},
         }
 
@@ -89,8 +94,10 @@ class Order:
         else:
             self.state = OrderState.PARTIALLY_FILLED
 
-        logger.info(f"Order {self.order_id} filled {actual_fill:.6f} @ ${self.price:.2f} "
-                   f"(total: {self.filled_qty:.6f}/{self.qty:.6f})")
+        logger.info(
+            f"Order {self.order_id} filled {actual_fill:.6f} @ ${self.price:.2f} "
+            f"(total: {self.filled_qty:.6f}/{self.qty:.6f})"
+        )
 
         return actual_fill
 
@@ -115,12 +122,14 @@ class Order:
         return self.state in [OrderState.ACKED, OrderState.PARTIALLY_FILLED]
 
     def __repr__(self) -> str:
-        return (f"Order(id={self.order_id}, {self.symbol}, "
-                f"{self.side.name}, qty={self.qty}, "
-                f"filled={self.filled_qty}, price=${self.price:.2f}, "
-                f"state={self.state.name})")
+        return (
+            f"Order(id={self.order_id}, {self.symbol}, "
+            f"{self.side.name}, qty={self.qty}, "
+            f"filled={self.filled_qty}, price=${self.price:.2f}, "
+            f"state={self.state.name})"
+        )
 
-    def __lt__(self, other: 'Order'):
+    def __lt__(self, other: "Order"):
         if self.price != other.price:
             if self.side == OrderSide.BUY:
                 return self.price > other.price

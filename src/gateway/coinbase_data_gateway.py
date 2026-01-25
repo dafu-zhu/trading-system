@@ -94,7 +94,9 @@ class CoinbaseDataGateway(DataGateway):
             elif msg_type == "error":
                 logger.error("Coinbase error: %s", data.get("message"))
             elif msg_type == "subscriptions":
-                logger.info("Coinbase subscriptions confirmed: %s", data.get("channels"))
+                logger.info(
+                    "Coinbase subscriptions confirmed: %s", data.get("channels")
+                )
 
         except json.JSONDecodeError as e:
             logger.error("Failed to parse message: %s", e)
@@ -176,11 +178,13 @@ class CoinbaseDataGateway(DataGateway):
                     reconnect_delay = 1  # Reset delay on successful connect
 
                     # Subscribe to channel
-                    subscribe_msg = json.dumps({
-                        "type": "subscribe",
-                        "product_ids": product_ids,
-                        "channels": [channel]
-                    })
+                    subscribe_msg = json.dumps(
+                        {
+                            "type": "subscribe",
+                            "product_ids": product_ids,
+                            "channels": [channel],
+                        }
+                    )
                     await ws.send(subscribe_msg)
                     logger.info("Subscribed to %s for %s", channel, product_ids)
 
@@ -193,7 +197,9 @@ class CoinbaseDataGateway(DataGateway):
                             # Send heartbeat / keep alive
                             pass
                         except websockets.ConnectionClosed as e:
-                            logger.warning("Coinbase WebSocket closed: %s. Reconnecting...", e)
+                            logger.warning(
+                                "Coinbase WebSocket closed: %s. Reconnecting...", e
+                            )
                             break
 
             except Exception as e:
@@ -225,7 +231,7 @@ class CoinbaseDataGateway(DataGateway):
         symbols: list[str] | list[SymbolConfig],
         callback: Callable[[MarketDataPoint], None],
         data_type: DataType = DataType.TRADES,
-        default_asset_type: AssetType = AssetType.STOCK
+        default_asset_type: AssetType = AssetType.STOCK,
     ) -> None:
         """
         Stream real-time market data (blocking).
@@ -294,9 +300,7 @@ class CoinbaseDataGateway(DataGateway):
 
         # Close WebSocket if running
         if self._websocket and self._loop:
-            asyncio.run_coroutine_threadsafe(
-                self._websocket.close(), self._loop
-            )
+            asyncio.run_coroutine_threadsafe(self._websocket.close(), self._loop)
 
         if self._stream_thread and self._stream_thread.is_alive():
             self._stream_thread.join(timeout=5)
@@ -316,7 +320,7 @@ class CoinbaseDataGateway(DataGateway):
     def get_market_calendar(self, start, end) -> list[MarketCalendarDay]:
         """Crypto markets are 24/7 - no calendar needed."""
         return []
-    
+
     def replay_historical(self, symbols, callback, timeframe, start, end, speed=1.0):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not support historical replay. "

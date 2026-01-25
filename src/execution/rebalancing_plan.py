@@ -36,7 +36,9 @@ class RebalancingPlan:
     target_date: date
     trades: list[PlannedTrade] = field(default_factory=list)
     start_time: time = field(default_factory=lambda: time(9, 30))  # Market open
-    aggressive_time: time = field(default_factory=lambda: time(15, 30))  # 30 min before close
+    aggressive_time: time = field(
+        default_factory=lambda: time(15, 30)
+    )  # 30 min before close
 
     @property
     def total_trades(self) -> int:

@@ -11,13 +11,13 @@ from backtester.position_sizer import (
 )
 
 __all__ = [
-    'BacktestEngine',
-    'EquityTracker',
-    'TradeTracker',
-    'PositionSizer',
-    'FixedSizer',
-    'PercentSizer',
-    'RiskBasedSizer',
-    'KellySizer',
-    'VolatilitySizer',
+    "BacktestEngine",
+    "EquityTracker",
+    "TradeTracker",
+    "PositionSizer",
+    "FixedSizer",
+    "PercentSizer",
+    "RiskBasedSizer",
+    "KellySizer",
+    "VolatilitySizer",
 ]

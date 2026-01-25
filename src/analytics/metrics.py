@@ -7,6 +7,7 @@ Calculates only the essential metrics:
 - Win Ratio (from trades)
 - Profit-and-Loss Ratio (avg win / avg loss)
 """
+
 import numpy as np
 import pandas as pd
 from typing import List, Dict
@@ -25,10 +26,7 @@ class PerformanceMetrics:
         self.risk_free_rate = risk_free_rate
 
     def calculate_all(
-        self,
-        equity_curve: pd.Series,
-        trades: List[Dict],
-        periods_per_year: int = 252
+        self, equity_curve: pd.Series, trades: List[Dict], periods_per_year: int = 252
     ) -> Dict:
         """
         Calculate all essential performance metrics.
@@ -49,10 +47,10 @@ class PerformanceMetrics:
         returns = equity_curve.pct_change().dropna()
 
         metrics = {
-            'sharpe_ratio': self.sharpe_ratio(returns, periods_per_year),
-            'max_drawdown': self.max_drawdown(equity_curve),
-            'win_ratio': self.win_ratio(trades),
-            'profit_loss_ratio': self.profit_loss_ratio(trades),
+            "sharpe_ratio": self.sharpe_ratio(returns, periods_per_year),
+            "max_drawdown": self.max_drawdown(equity_curve),
+            "win_ratio": self.win_ratio(trades),
+            "profit_loss_ratio": self.profit_loss_ratio(trades),
         }
 
         return metrics
@@ -81,7 +79,9 @@ class PerformanceMetrics:
             return 0.0
 
         # Annualize the Sharpe ratio
-        sharpe = np.sqrt(periods_per_year) * (excess_returns.mean() / excess_returns.std())
+        sharpe = np.sqrt(periods_per_year) * (
+            excess_returns.mean() / excess_returns.std()
+        )
         return sharpe
 
     def max_drawdown(self, equity_curve: pd.Series) -> float:
@@ -121,7 +121,7 @@ class PerformanceMetrics:
         if not trades:
             return 0.0
 
-        pnls = [t.get('pnl', 0) for t in trades]
+        pnls = [t.get("pnl", 0) for t in trades]
         winning_trades = sum(1 for pnl in pnls if pnl > 0)
 
         return winning_trades / len(trades)
@@ -142,7 +142,7 @@ class PerformanceMetrics:
         if not trades:
             return 0.0
 
-        pnls = [t.get('pnl', 0) for t in trades]
+        pnls = [t.get("pnl", 0) for t in trades]
         wins = [pnl for pnl in pnls if pnl > 0]
         losses = [pnl for pnl in pnls if pnl < 0]
 
@@ -173,10 +173,10 @@ def format_metrics(metrics: Dict) -> str:
     report.append("PERFORMANCE METRICS")
     report.append("=" * 50)
 
-    sharpe = metrics.get('sharpe_ratio', 0)
-    max_dd = metrics.get('max_drawdown', 0)
-    win_ratio = metrics.get('win_ratio', 0)
-    pl_ratio = metrics.get('profit_loss_ratio', 0)
+    sharpe = metrics.get("sharpe_ratio", 0)
+    max_dd = metrics.get("max_drawdown", 0)
+    win_ratio = metrics.get("win_ratio", 0)
+    pl_ratio = metrics.get("profit_loss_ratio", 0)
 
     report.append(f"\nSharpe Ratio:        {sharpe:>10.3f}")
     report.append(f"Max Drawdown:        {max_dd:>10.2%}")
@@ -187,14 +187,14 @@ def format_metrics(metrics: Dict) -> str:
     return "\n".join(report)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("=" * 70)
     print("Simplified Performance Metrics Example")
     print("=" * 70)
 
     # Generate sample equity curve
     np.random.seed(42)
-    dates = pd.date_range('2023-01-01', periods=252, freq='D')
+    dates = pd.date_range("2023-01-01", periods=252, freq="D")
 
     # Simulate returns with slight positive drift
     returns = np.random.normal(0.0005, 0.01, 252)
@@ -203,16 +203,16 @@ if __name__ == '__main__':
 
     # Sample trades
     trades = [
-        {'pnl': 500},
-        {'pnl': -200},
-        {'pnl': 300},
-        {'pnl': -150},
-        {'pnl': 700},
-        {'pnl': -100},
-        {'pnl': 400},
-        {'pnl': -250},
-        {'pnl': 600},
-        {'pnl': -180},
+        {"pnl": 500},
+        {"pnl": -200},
+        {"pnl": 300},
+        {"pnl": -150},
+        {"pnl": 700},
+        {"pnl": -100},
+        {"pnl": 400},
+        {"pnl": -250},
+        {"pnl": 600},
+        {"pnl": -180},
     ]
 
     # Calculate metrics
@@ -225,4 +225,4 @@ if __name__ == '__main__':
     print("\nEquity Curve Summary:")
     print(f"  Starting Value: ${equity_curve.iloc[0]:,.2f}")
     print(f"  Ending Value:   ${equity_curve.iloc[-1]:,.2f}")
-    print(f"  Total Return:   {(equity_curve.iloc[-1]/equity_curve.iloc[0] - 1):.2%}")
+    print(f"  Total Return:   {(equity_curve.iloc[-1] / equity_curve.iloc[0] - 1):.2%}")

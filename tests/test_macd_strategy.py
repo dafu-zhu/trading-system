@@ -7,10 +7,10 @@ Tests with mocked DataGateway for unit testing.
 import pytest
 import pandas as pd
 from datetime import datetime
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock
 
 from strategy.macd_strategy import MACDStrategy
-from models import DataGateway, Timeframe, Bar, MarketDataPoint, MarketSnapshot
+from models import DataGateway, Timeframe, Bar, MarketSnapshot
 
 
 class TestMACDStrategy:
@@ -20,6 +20,7 @@ class TestMACDStrategy:
     def sample_bars(self):
         """Create sample bars with price movement for MACD testing."""
         from datetime import timedelta
+
         # Generate bars with a pattern that will produce MACD crossovers
         bars = []
         base_price = 100.0
@@ -33,16 +34,18 @@ class TestMACDStrategy:
             else:
                 price = base_price + (i - 25) * 0.6  # Another uptrend
 
-            bars.append(Bar(
-                symbol="AAPL",
-                timestamp=base_date + timedelta(days=i),
-                timeframe=Timeframe.DAY_1,
-                open=price - 0.5,
-                high=price + 1.0,
-                low=price - 1.0,
-                close=price,
-                volume=1000000,
-            ))
+            bars.append(
+                Bar(
+                    symbol="AAPL",
+                    timestamp=base_date + timedelta(days=i),
+                    timeframe=Timeframe.DAY_1,
+                    open=price - 0.5,
+                    high=price + 1.0,
+                    low=price - 1.0,
+                    close=price,
+                    volume=1000000,
+                )
+            )
         return bars
 
     @pytest.fixture
@@ -92,10 +95,10 @@ class TestMACDStrategy:
         mock_gateway.fetch_bars.assert_called_once()
 
         # Should have MACD columns
-        assert 'macd' in df.columns
-        assert 'macd_signal' in df.columns
-        assert 'macd_histogram' in df.columns
-        assert 'signal' in df.columns
+        assert "macd" in df.columns
+        assert "macd_signal" in df.columns
+        assert "macd_histogram" in df.columns
+        assert "signal" in df.columns
 
         # Should have data
         assert len(df) == len(sample_bars)
@@ -124,10 +127,10 @@ class TestMACDStrategy:
         signals = strategy.generate_signals(snapshot)
 
         assert len(signals) == 1
-        assert signals[0]['symbol'] == 'AAPL'
-        assert signals[0]['action'] in ['BUY', 'SELL', 'HOLD']
-        assert signals[0]['timestamp'] == snapshot.timestamp
-        assert signals[0]['price'] == sample_bars[30].close
+        assert signals[0]["symbol"] == "AAPL"
+        assert signals[0]["action"] in ["BUY", "SELL", "HOLD"]
+        assert signals[0]["timestamp"] == snapshot.timestamp
+        assert signals[0]["price"] == sample_bars[30].close
 
     def test_generate_signals_unknown_timestamp(self, strategy, sample_bars):
         """Test signal generation for timestamp not in data."""
@@ -145,7 +148,7 @@ class TestMACDStrategy:
 
         assert len(signals) == 1
         # Should find closest prior timestamp
-        assert signals[0]['action'] in ['BUY', 'SELL', 'HOLD']
+        assert signals[0]["action"] in ["BUY", "SELL", "HOLD"]
 
     def test_generate_signals_loads_data_if_needed(self, strategy, mock_gateway):
         """Test that generate_signals loads data if not cached."""
@@ -169,16 +172,17 @@ class TestMACDStrategy:
             datetime(2024, 2, 15),
         )
 
-        assert 'signal' in df.columns
+        assert "signal" in df.columns
         assert len(df) == len(sample_bars)
 
         # Check signal distribution
-        signal_counts = df['signal'].value_counts()
-        assert 'HOLD' in signal_counts.index  # Should have some HOLDs
+        signal_counts = df["signal"].value_counts()
+        assert "HOLD" in signal_counts.index  # Should have some HOLDs
 
     def test_clear_cache(self, strategy, mock_gateway):
         """Test cache clearing."""
         from datetime import timedelta
+
         base_date = datetime(2024, 1, 1, 9, 30)
         # Load data for two symbols
         strategy.get_data("AAPL", datetime(2024, 1, 1), datetime(2024, 2, 15))
@@ -187,7 +191,10 @@ class TestMACDStrategy:
                 symbol="MSFT",
                 timestamp=base_date + timedelta(days=i),
                 timeframe=Timeframe.DAY_1,
-                open=300 + i, high=305 + i, low=298 + i, close=302 + i,
+                open=300 + i,
+                high=305 + i,
+                low=298 + i,
+                close=302 + i,
                 volume=500000,
             )
             for i in range(40)
@@ -210,8 +217,8 @@ class TestMACDStrategy:
         """Test that signals have valid values."""
         df = strategy.get_data("AAPL", datetime(2024, 1, 1), datetime(2024, 2, 15))
 
-        valid_signals = {'BUY', 'SELL', 'HOLD'}
-        for signal in df['signal']:
+        valid_signals = {"BUY", "SELL", "HOLD"}
+        for signal in df["signal"]:
             assert signal in valid_signals
 
     def test_default_timeframe(self, mock_gateway):
@@ -228,22 +235,25 @@ class TestMACDStrategyIntegration:
         """Create realistic price data with clear MACD crossovers."""
         import math
         from datetime import timedelta
+
         bars = []
         base_date = datetime(2024, 1, 1, 9, 30)
         # Create a sinusoidal price pattern that will produce clear crossovers
         for i in range(100):
             # Sin wave with period ~40 bars
             price = 100 + 10 * math.sin(i * 2 * math.pi / 40)
-            bars.append(Bar(
-                symbol="TEST",
-                timestamp=base_date + timedelta(days=i),
-                timeframe=Timeframe.DAY_1,
-                open=price - 0.2,
-                high=price + 0.5,
-                low=price - 0.5,
-                close=price,
-                volume=1000000,
-            ))
+            bars.append(
+                Bar(
+                    symbol="TEST",
+                    timestamp=base_date + timedelta(days=i),
+                    timeframe=Timeframe.DAY_1,
+                    open=price - 0.2,
+                    high=price + 0.5,
+                    low=price - 0.5,
+                    close=price,
+                    volume=1000000,
+                )
+            )
         return bars
 
     def test_crossover_detection(self, realistic_bars):
@@ -255,8 +265,8 @@ class TestMACDStrategyIntegration:
         df = strategy.get_data("TEST", datetime(2024, 1, 1), datetime(2024, 4, 30))
 
         # Should have some BUY and SELL signals with sinusoidal data
-        buy_count = (df['signal'] == 'BUY').sum()
-        sell_count = (df['signal'] == 'SELL').sum()
+        buy_count = (df["signal"] == "BUY").sum()
+        sell_count = (df["signal"] == "SELL").sum()
 
         # With 100 bars of sinusoidal data, we should see crossovers
         # (At least 1 of each, but likely more)
@@ -269,35 +279,39 @@ class TestGenerateSignalsFromMACD:
 
     def test_signal_generation(self):
         """Test signal generation adds signal column."""
-        df = pd.DataFrame({
-            'close': [100, 101, 102, 103, 104],
-            'macd': [1, 2, 1, 0, 1],
-            'macd_signal': [0.5, 1.5, 1.5, 0.5, 0.5],
-        })
+        df = pd.DataFrame(
+            {
+                "close": [100, 101, 102, 103, 104],
+                "macd": [1, 2, 1, 0, 1],
+                "macd_signal": [0.5, 1.5, 1.5, 0.5, 0.5],
+            }
+        )
 
         result = MACDStrategy.generate_signals_from_macd(df)
 
-        assert 'signal' in result.columns
-        assert set(result['signal'].unique()).issubset({'BUY', 'SELL', 'HOLD'})
+        assert "signal" in result.columns
+        assert set(result["signal"].unique()).issubset({"BUY", "SELL", "HOLD"})
 
     def test_requires_macd_columns(self):
         """Test that signal generation requires MACD columns."""
-        df = pd.DataFrame({'close': [100, 101, 102]})
+        df = pd.DataFrame({"close": [100, 101, 102]})
 
         with pytest.raises(ValueError, match="Missing columns"):
             MACDStrategy.generate_signals_from_macd(df)
 
     def test_signal_logic(self):
         """Test signal logic with known values."""
-        df = pd.DataFrame({
-            'close': [100, 101, 102, 103, 104],
-            'macd': [1, 2, -1, -2, 1],
-            'macd_signal': [0.5, 1.5, 0, -1, 0.5],
-        })
+        df = pd.DataFrame(
+            {
+                "close": [100, 101, 102, 103, 104],
+                "macd": [1, 2, -1, -2, 1],
+                "macd_signal": [0.5, 1.5, 0, -1, 0.5],
+            }
+        )
 
         result = MACDStrategy.generate_signals_from_macd(df)
 
         # Row 2: macd goes from above signal (2 > 1.5) to below (-1 < 0) -> SELL
-        assert result.iloc[2]['signal'] == 'SELL'
+        assert result.iloc[2]["signal"] == "SELL"
         # Row 4: macd goes from below signal (-2 < -1) to above (1 > 0.5) -> BUY
-        assert result.iloc[4]['signal'] == 'BUY'
+        assert result.iloc[4]["signal"] == "BUY"

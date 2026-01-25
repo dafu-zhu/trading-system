@@ -41,12 +41,30 @@ def setup_logging():
 
 
 class JsonFormatter(logging.Formatter):
-
     LOG_RECORD_BUILTIN_ATTRS = {
-        "args", "asctime", "created", "exc_info", "exc_text", "filename", "funcName",
-        "levelname", "levelno", "lineno", "module", "msecs", "message", "msg", "name",
-        "pathname", "process", "processName", "relativeCreated", "stack_info", "thread",
-        "threadName", "taskName",
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "module",
+        "msecs",
+        "message",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
+        "taskName",
     }
 
     def __init__(self, *, fmt_keys: Dict[str, str] | None) -> None:
@@ -98,7 +116,7 @@ class JsonFormatter(logging.Formatter):
         return message
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     setup_logging()
 

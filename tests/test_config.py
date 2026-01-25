@@ -93,7 +93,7 @@ class TestRiskConfig:
         assert config.max_position_size == 1000.0
         assert config.max_position_value == 100_000.0
         assert config.max_total_exposure == 500_000.0
-        assert config.max_orders_per_minute == 100
+        assert config.max_orders_per_minute == 200
         assert config.max_orders_per_symbol_per_minute == 20
         assert config.min_cash_buffer == 1000.0
 

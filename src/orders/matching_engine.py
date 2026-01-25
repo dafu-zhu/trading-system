@@ -55,23 +55,25 @@ class DeterministicMatchingEngine(MatchingEngine):
         :return: Execution report dictionary
         """
         if order.state not in (OrderState.ACKED, OrderState.PARTIALLY_FILLED):
-            logger.warning(f"Cannot match order {order.order_id} in state {order.state}")
+            logger.warning(
+                f"Cannot match order {order.order_id} in state {order.state}"
+            )
             return {
-                'order_id': order.order_id,
-                'status': 'rejected',
-                'filled_qty': 0.0,
-                'remaining_qty': order.remaining_qty,
-                'message': f'Order not in matchable state: {order.state}'
+                "order_id": order.order_id,
+                "status": "rejected",
+                "filled_qty": 0.0,
+                "remaining_qty": order.remaining_qty,
+                "message": f"Order not in matchable state: {order.state}",
             }
 
         if self._current_bar is None:
             logger.warning(f"No bar data for matching order {order.order_id}")
             return {
-                'order_id': order.order_id,
-                'status': 'rejected',
-                'filled_qty': 0.0,
-                'remaining_qty': order.remaining_qty,
-                'message': 'No bar data available for matching'
+                "order_id": order.order_id,
+                "status": "rejected",
+                "filled_qty": 0.0,
+                "remaining_qty": order.remaining_qty,
+                "message": "No bar data available for matching",
             }
 
         bar = self._current_bar
@@ -81,11 +83,11 @@ class DeterministicMatchingEngine(MatchingEngine):
         if fill_price is None:
             # Limit order not fillable at current bar
             return {
-                'order_id': order.order_id,
-                'status': 'pending',
-                'filled_qty': 0.0,
-                'remaining_qty': order.remaining_qty,
-                'message': 'Limit price not within bar range'
+                "order_id": order.order_id,
+                "status": "pending",
+                "filled_qty": 0.0,
+                "remaining_qty": order.remaining_qty,
+                "message": "Limit price not within bar range",
             }
 
         # Apply slippage
@@ -97,32 +99,34 @@ class DeterministicMatchingEngine(MatchingEngine):
 
         if fill_qty <= 0:
             return {
-                'order_id': order.order_id,
-                'status': 'rejected',
-                'filled_qty': 0.0,
-                'remaining_qty': order.remaining_qty,
-                'message': 'Insufficient volume for fill'
+                "order_id": order.order_id,
+                "status": "rejected",
+                "filled_qty": 0.0,
+                "remaining_qty": order.remaining_qty,
+                "message": "Insufficient volume for fill",
             }
 
         # Execute fill
         filled_qty = order.fill(fill_qty)
 
         if order.remaining_qty <= 0:
-            status = 'filled'
-            message = 'Order fully filled'
+            status = "filled"
+            message = "Order fully filled"
         else:
-            status = 'partially_filled'
-            message = f'Order partially filled: {filled_qty:.2f}/{order.qty}'
+            status = "partially_filled"
+            message = f"Order partially filled: {filled_qty:.2f}/{order.qty}"
 
-        logger.info(f"Order {order.order_id} {status}: {filled_qty:.6f} @ ${fill_price:.2f}")
+        logger.info(
+            f"Order {order.order_id} {status}: {filled_qty:.6f} @ ${fill_price:.2f}"
+        )
 
         return {
-            'order_id': order.order_id,
-            'status': status,
-            'filled_qty': filled_qty,
-            'remaining_qty': order.remaining_qty,
-            'fill_price': fill_price,
-            'message': message
+            "order_id": order.order_id,
+            "status": status,
+            "filled_qty": filled_qty,
+            "remaining_qty": order.remaining_qty,
+            "fill_price": fill_price,
+            "message": message,
         }
 
     def _get_fill_price(self, bar: Bar, order: Order) -> Optional[float]:
@@ -133,7 +137,7 @@ class DeterministicMatchingEngine(MatchingEngine):
         :param order: Order to fill
         :return: Fill price or None if limit order not fillable
         """
-        limit_price = getattr(order, 'limit_price', None)
+        limit_price = getattr(order, "limit_price", None)
 
         # For limit orders, check if price was hit during bar
         if limit_price is not None:

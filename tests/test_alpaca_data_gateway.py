@@ -10,7 +10,7 @@ import os
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from datetime import datetime, date, timezone
 
 from gateway.alpaca_data_gateway import AlpacaDataGateway
@@ -24,7 +24,9 @@ class TestAlpacaDataGatewayUnit:
     @pytest.fixture
     def mock_data_client(self):
         """Create a mock StockHistoricalDataClient."""
-        with patch("gateway.alpaca_data_gateway.StockHistoricalDataClient") as mock_class:
+        with patch(
+            "gateway.alpaca_data_gateway.StockHistoricalDataClient"
+        ) as mock_class:
             mock_client = MagicMock()
             mock_class.return_value = mock_client
             yield mock_client
@@ -47,10 +49,13 @@ class TestAlpacaDataGatewayUnit:
     @pytest.fixture
     def gateway(self, mock_data_client, mock_trading_client, temp_storage):
         """Create gateway with mocked clients."""
-        with patch.dict(os.environ, {
-            "ALPACA_API_KEY": "test_key",
-            "ALPACA_API_SECRET": "test_secret",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ALPACA_API_KEY": "test_key",
+                "ALPACA_API_SECRET": "test_secret",
+            },
+        ):
             gw = AlpacaDataGateway(use_cache=True, storage=temp_storage)
             return gw
 
@@ -62,10 +67,13 @@ class TestAlpacaDataGatewayUnit:
 
     def test_init_accepts_env_credentials(self):
         """Test that gateway accepts credentials from environment."""
-        with patch.dict(os.environ, {
-            "ALPACA_API_KEY": "test_key",
-            "ALPACA_API_SECRET": "test_secret",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ALPACA_API_KEY": "test_key",
+                "ALPACA_API_SECRET": "test_secret",
+            },
+        ):
             with patch("gateway.alpaca_data_gateway.StockHistoricalDataClient"):
                 with patch("gateway.alpaca_data_gateway.TradingClient"):
                     gw = AlpacaDataGateway(use_cache=False)
@@ -117,7 +125,9 @@ class TestAlpacaDataGatewayUnit:
         assert bars[0].open == 185.0
         assert bars[0].close == 186.0
 
-    def test_fetch_bars_caches_results(self, gateway, mock_data_client, mock_trading_client, temp_storage):
+    def test_fetch_bars_caches_results(
+        self, gateway, mock_data_client, mock_trading_client, temp_storage
+    ):
         """Test that fetched bars are cached."""
         gateway.connect()
 
@@ -153,7 +163,9 @@ class TestAlpacaDataGatewayUnit:
         )
         assert len(cached) == 1
 
-    def test_fetch_bars_uses_cache(self, gateway, mock_data_client, mock_trading_client, temp_storage):
+    def test_fetch_bars_uses_cache(
+        self, gateway, mock_data_client, mock_trading_client, temp_storage
+    ):
         """Test that fetch uses cache when available."""
         gateway.connect()
 
@@ -181,7 +193,9 @@ class TestAlpacaDataGatewayUnit:
         assert len(bars) == 1
         mock_data_client.get_stock_bars.assert_not_called()
 
-    def test_stream_bars(self, gateway, mock_data_client, mock_trading_client, temp_storage):
+    def test_stream_bars(
+        self, gateway, mock_data_client, mock_trading_client, temp_storage
+    ):
         """Test streaming bars."""
         gateway.connect()
 
@@ -191,24 +205,34 @@ class TestAlpacaDataGatewayUnit:
                 symbol="AAPL",
                 timestamp=datetime(2024, 1, 2, 9, 30),
                 timeframe=Timeframe.DAY_1,
-                open=185.0, high=186.5, low=184.0, close=186.0, volume=50000000,
+                open=185.0,
+                high=186.5,
+                low=184.0,
+                close=186.0,
+                volume=50000000,
             ),
             Bar(
                 symbol="AAPL",
                 timestamp=datetime(2024, 1, 3, 9, 30),
                 timeframe=Timeframe.DAY_1,
-                open=186.0, high=187.0, low=185.5, close=186.5, volume=45000000,
+                open=186.0,
+                high=187.0,
+                low=185.5,
+                close=186.5,
+                volume=45000000,
             ),
         ]
         temp_storage.save_bars(bars)
 
         # Stream bars
-        streamed = list(gateway.stream_bars(
-            "AAPL",
-            Timeframe.DAY_1,
-            datetime(2024, 1, 1),
-            datetime(2024, 1, 5),
-        ))
+        streamed = list(
+            gateway.stream_bars(
+                "AAPL",
+                Timeframe.DAY_1,
+                datetime(2024, 1, 1),
+                datetime(2024, 1, 5),
+            )
+        )
 
         assert len(streamed) == 2
         assert streamed[0].open == 185.0
@@ -217,11 +241,13 @@ class TestAlpacaDataGatewayUnit:
     def test_operations_require_connection(self, gateway):
         """Test that operations require connection."""
         with pytest.raises(RuntimeError, match="Not connected"):
-            gateway.fetch_bars("AAPL", Timeframe.DAY_1, datetime(2024, 1, 1), datetime(2024, 1, 5))
+            gateway.fetch_bars(
+                "AAPL", Timeframe.DAY_1, datetime(2024, 1, 1), datetime(2024, 1, 5)
+            )
 
     def test_timeframe_mapping(self, gateway):
         """Test internal timeframe to Alpaca timeframe mapping."""
-        from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
+        from alpaca.data.timeframe import TimeFrameUnit
 
         result = gateway._to_alpaca_timeframe(Timeframe.MIN_1)
         assert result.amount == 1

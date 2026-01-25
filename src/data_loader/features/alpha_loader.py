@@ -201,7 +201,9 @@ class AlphaLoader:
             for i, symbol in enumerate(symbols):
                 # Placeholder: spread values evenly
                 alpha_value = (i - len(symbols) / 2) / len(symbols)
-                rows.append({"date": date, "symbol": symbol, "alpha_value": alpha_value})
+                rows.append(
+                    {"date": date, "symbol": symbol, "alpha_value": alpha_value}
+                )
 
         return pl.DataFrame(rows)
 
@@ -222,7 +224,9 @@ class AlphaLoader:
             for i, symbol in enumerate(symbols):
                 # Placeholder: inverse of momentum
                 alpha_value = -(i - len(symbols) / 2) / len(symbols)
-                rows.append({"date": date, "symbol": symbol, "alpha_value": alpha_value})
+                rows.append(
+                    {"date": date, "symbol": symbol, "alpha_value": alpha_value}
+                )
 
         return pl.DataFrame(rows)
 
@@ -243,7 +247,9 @@ class AlphaLoader:
             for i, symbol in enumerate(symbols):
                 # Placeholder: scaled rank
                 alpha_value = 2 * (i / max(len(symbols) - 1, 1)) - 1
-                rows.append({"date": date, "symbol": symbol, "alpha_value": alpha_value})
+                rows.append(
+                    {"date": date, "symbol": symbol, "alpha_value": alpha_value}
+                )
 
         return pl.DataFrame(rows)
 
@@ -256,7 +262,9 @@ class AlphaLoader:
     ) -> pl.DataFrame:
         """Load alpha data from quantdl."""
         if self._client is None:
-            logger.warning(f"No quantdl client configured, returning empty for {alpha_name}")
+            logger.warning(
+                f"No quantdl client configured, returning empty for {alpha_name}"
+            )
             return pl.DataFrame({"date": [], "symbol": [], "alpha_value": []})
 
         # TODO: Implement quantdl integration

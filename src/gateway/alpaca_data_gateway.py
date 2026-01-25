@@ -106,8 +106,8 @@ class AlpacaDataGateway(DataGateway):
     def is_connected(self) -> bool:
         """Check if connected to Alpaca."""
         return self._connected and (
-            self._stock_data_client is not None or 
-            self._crypto_data_client is not None)
+            self._stock_data_client is not None or self._crypto_data_client is not None
+        )
 
     def _ensure_connected(self) -> None:
         """Raise error if not connected."""
@@ -117,15 +117,31 @@ class AlpacaDataGateway(DataGateway):
     def _to_alpaca_timeframe(self, timeframe: Timeframe) -> AlpacaTimeFrame:
         """Convert internal Timeframe to Alpaca TimeFrame."""
         mapping = {
-            Timeframe.MIN_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
-            Timeframe.MIN_5: AlpacaTimeFrame(5, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
-            Timeframe.MIN_15: AlpacaTimeFrame(15, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
-            Timeframe.MIN_30: AlpacaTimeFrame(30, cast(TimeFrameUnit, TimeFrameUnit.Minute)),
-            Timeframe.HOUR_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Hour)),
-            Timeframe.HOUR_4: AlpacaTimeFrame(4, cast(TimeFrameUnit, TimeFrameUnit.Hour)),
+            Timeframe.MIN_1: AlpacaTimeFrame(
+                1, cast(TimeFrameUnit, TimeFrameUnit.Minute)
+            ),
+            Timeframe.MIN_5: AlpacaTimeFrame(
+                5, cast(TimeFrameUnit, TimeFrameUnit.Minute)
+            ),
+            Timeframe.MIN_15: AlpacaTimeFrame(
+                15, cast(TimeFrameUnit, TimeFrameUnit.Minute)
+            ),
+            Timeframe.MIN_30: AlpacaTimeFrame(
+                30, cast(TimeFrameUnit, TimeFrameUnit.Minute)
+            ),
+            Timeframe.HOUR_1: AlpacaTimeFrame(
+                1, cast(TimeFrameUnit, TimeFrameUnit.Hour)
+            ),
+            Timeframe.HOUR_4: AlpacaTimeFrame(
+                4, cast(TimeFrameUnit, TimeFrameUnit.Hour)
+            ),
             Timeframe.DAY_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Day)),
-            Timeframe.WEEK_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Week)),
-            Timeframe.MONTH_1: AlpacaTimeFrame(1, cast(TimeFrameUnit, TimeFrameUnit.Month)),
+            Timeframe.WEEK_1: AlpacaTimeFrame(
+                1, cast(TimeFrameUnit, TimeFrameUnit.Week)
+            ),
+            Timeframe.MONTH_1: AlpacaTimeFrame(
+                1, cast(TimeFrameUnit, TimeFrameUnit.Month)
+            ),
         }
         return mapping[timeframe]
 
@@ -135,7 +151,9 @@ class AlpacaDataGateway(DataGateway):
             return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
 
-    def _alpaca_bar_to_bar(self, symbol: str, alpaca_bar: AlpacaBar, timeframe: Timeframe) -> Bar:
+    def _alpaca_bar_to_bar(
+        self, symbol: str, alpaca_bar: AlpacaBar, timeframe: Timeframe
+    ) -> Bar:
         """Convert Alpaca bar to internal Bar."""
         return Bar(
             symbol=symbol,
@@ -222,7 +240,9 @@ class AlpacaDataGateway(DataGateway):
         end = self._ensure_utc(end)
 
         # Resolve asset class
-        resolved_asset_class = asset_class if asset_class else self._infer_asset_class(symbol)
+        resolved_asset_class = (
+            asset_class if asset_class else self._infer_asset_class(symbol)
+        )
 
         try:
             if resolved_asset_class == AssetType.CRYPTO:
@@ -246,7 +266,7 @@ class AlpacaDataGateway(DataGateway):
                 )
                 response = self._stock_data_client.get_stock_bars(request)
 
-            data: Any = getattr(response, 'data', response)
+            data: Any = getattr(response, "data", response)
             bars = [
                 self._alpaca_bar_to_bar(symbol, alpaca_bar, timeframe)
                 for alpaca_bar in data.get(symbol, [])
@@ -392,7 +412,9 @@ class AlpacaDataGateway(DataGateway):
         for bar in bars:
             yield bar
 
-    def _parse_calendar_time(self, day_date: date, time_val: datetime | str) -> datetime:
+    def _parse_calendar_time(
+        self, day_date: date, time_val: datetime | str
+    ) -> datetime:
         """Parse calendar time from datetime or HH:MM string."""
         if isinstance(time_val, datetime):
             return time_val
@@ -458,8 +480,8 @@ class AlpacaDataGateway(DataGateway):
     def _create_stock_stream(self) -> StockDataStream:
         """Create and return a StockDataStream instance."""
         return StockDataStream(
-            api_key=self._api_key, # type: ignore
-            secret_key=self._api_secret, # type: ignore
+            api_key=self._api_key,  # type: ignore
+            secret_key=self._api_secret,  # type: ignore
             feed=DataFeed.IEX,  # IEX for paper trading
         )
 
@@ -470,8 +492,8 @@ class AlpacaDataGateway(DataGateway):
         because the Alpaca US endpoint doesn't reliably deliver real-time data.
         """
         return CryptoDataStream(
-            api_key=self._api_key, # type: ignore
-            secret_key=self._api_secret, # type: ignore
+            api_key=self._api_key,  # type: ignore
+            secret_key=self._api_secret,  # type: ignore
             url_override="wss://stream.data.alpaca.markets/v1beta3/crypto/us-1",
         )
 
@@ -479,7 +501,7 @@ class AlpacaDataGateway(DataGateway):
         """Handle incoming trade data from WebSocket."""
         try:
             # Mark first data received (for startup timeout check)
-            if not getattr(self, '_first_data_received', False):
+            if not getattr(self, "_first_data_received", False):
                 self._first_data_received = True
                 logger.info("First trade received - stream is active")
 
@@ -618,7 +640,11 @@ class AlpacaDataGateway(DataGateway):
         for sym in symbols:
             if isinstance(sym, SymbolConfig):
                 self._symbol_configs[sym.symbol] = sym
-                target = crypto_symbols if sym.asset_type == AssetType.CRYPTO else stock_symbols
+                target = (
+                    crypto_symbols
+                    if sym.asset_type == AssetType.CRYPTO
+                    else stock_symbols
+                )
                 target.append(sym.symbol)
             elif default_asset_type == AssetType.CRYPTO:
                 crypto_symbols.append(sym)
@@ -642,7 +668,9 @@ class AlpacaDataGateway(DataGateway):
         elif data_type == DataType.BARS:
             stream.subscribe_bars(self._handle_bar, *symbols)
 
-        logger.info("Subscribed to %s for %s: %s", data_type.value, asset_label, symbols)
+        logger.info(
+            "Subscribed to %s for %s: %s", data_type.value, asset_label, symbols
+        )
 
     def stream_realtime(
         self,
@@ -675,12 +703,16 @@ class AlpacaDataGateway(DataGateway):
         # Set up stock stream
         if stock_symbols:
             self._stock_stream = self._create_stock_stream()
-            self._subscribe_stream(self._stock_stream, stock_symbols, data_type, "stocks")
+            self._subscribe_stream(
+                self._stock_stream, stock_symbols, data_type, "stocks"
+            )
 
         # Set up crypto stream
         if crypto_symbols:
             self._crypto_stream = self._create_crypto_stream()
-            self._subscribe_stream(self._crypto_stream, crypto_symbols, data_type, "crypto")
+            self._subscribe_stream(
+                self._crypto_stream, crypto_symbols, data_type, "crypto"
+            )
             logger.info("Waiting for crypto market data (this may take a moment)...")
 
         # Run streams: stock in main thread (with crypto in background if both), else crypto only
