@@ -5,11 +5,14 @@ Integrates strategy execution, risk management, and order execution for live tra
 Supports both paper trading (via Alpaca) and dry-run mode (historical replay).
 """
 
+import json
 import logging
+import os
 import signal
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from config.trading_config import LiveEngineConfig, DataType, SymbolConfig, AssetType
@@ -155,6 +158,17 @@ class LiveTradingEngine:
             )
         else:
             self.order_gateway = None
+
+        # Health file for monitoring
+        self.health_file_path: Optional[Path] = None
+        health_file_env = os.environ.get("HEALTH_FILE")
+        if health_file_env:
+            self.health_file_path = Path(health_file_env)
+        else:
+            # Default: data/health.json relative to working directory
+            data_dir = Path("data")
+            if data_dir.exists():
+                self.health_file_path = data_dir / "health.json"
 
         # Set up signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -318,9 +332,81 @@ class LiveTradingEngine:
         if self.metrics.last_status_time is None:
             self.metrics.last_status_time = now
             self._log_status()
+            self._write_health_file()
         elif (now - self.metrics.last_status_time).total_seconds() >= 30:
             self.metrics.last_status_time = now
             self._log_status()
+            self._write_health_file()
+
+    def _write_health_file(self) -> None:
+        """Write health status to JSON file for external monitoring."""
+        if not self.health_file_path:
+            return
+
+        try:
+            portfolio_value = self._get_portfolio_value()
+            pnl = portfolio_value - self.initial_capital
+            pnl_pct = (pnl / self.initial_capital * 100) if self.initial_capital > 0 else 0
+            uptime = (
+                (datetime.now() - self.metrics.start_time).total_seconds()
+                if self.metrics.start_time
+                else 0
+            )
+
+            # Build positions list
+            positions_list = [
+                {
+                    "symbol": pos.symbol,
+                    "quantity": pos.quantity,
+                    "average_cost": pos.average_cost,
+                    "current_price": pos.current_price,
+                    "unrealized_pnl": pos.unrealized_pnl,
+                }
+                for pos in self.positions.values()
+                if pos.quantity != 0
+            ]
+
+            health_data = {
+                "status": "running" if self.running else "stopped",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "uptime_seconds": int(uptime),
+                "mode": (
+                    "dry_run" if self.config.trading.dry_run
+                    else ("paper" if self.config.trading.paper_mode else "live")
+                ),
+                "trading_enabled": self.config.enable_trading,
+                "circuit_breaker_active": (
+                    self.risk_manager.circuit_breaker_triggered
+                    if self.risk_manager
+                    else False
+                ),
+                "metrics": {
+                    "tick_count": self.metrics.tick_count,
+                    "signals_generated": self.metrics.signals_generated,
+                    "orders_submitted": self.metrics.orders_submitted,
+                    "orders_filled": self.metrics.orders_filled,
+                    "orders_rejected": self.metrics.orders_rejected,
+                    "stop_loss_triggered": self.metrics.stop_loss_triggered,
+                },
+                "portfolio": {
+                    "cash": self.cash,
+                    "portfolio_value": portfolio_value,
+                    "initial_capital": self.initial_capital,
+                    "pnl": pnl,
+                    "pnl_percent": pnl_pct,
+                },
+                "positions": positions_list,
+                "current_prices": dict(self.current_prices),
+            }
+
+            # Write atomically (write to temp, then rename)
+            temp_path = self.health_file_path.with_suffix(".tmp")
+            with open(temp_path, "w") as f:
+                json.dump(health_data, f, indent=2)
+            temp_path.rename(self.health_file_path)
+
+        except Exception as e:
+            logger.warning("Failed to write health file: %s", e)
 
     def _process_signal(self, signal_dict: dict, tick: MarketDataPoint) -> None:
         """
